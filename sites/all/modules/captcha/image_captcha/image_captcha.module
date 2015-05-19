@@ -246,16 +246,18 @@ function image_captcha_captcha($op, $captcha_type = '', $captcha_sid = NULL) {
         );
         $img_src = check_url(url("image_captcha", $options));
         list($width, $height) = _image_captcha_image_size($code);
-        // TODO: start using a theming funtion for generating the image markup?
         $result['form']['captcha_image'] = array(
-          '#type' => 'markup',
-          '#markup' => '<img src="' . $img_src
-          . '" width="' . $width . '" height="' . $height
-          . '" alt="' . t('Image CAPTCHA') . '" title="' . t('Image CAPTCHA') . '" />',
+          '#theme' => 'image',
           '#weight' => -2,
+          '#path' => $img_src,
+          '#width' => $width,
+          '#height' => $height,
+          '#title' => t('Image CAPTCHA'),
+          '#alt' => t('Image CAPTCHA'),
         );
         $result['form']['captcha_response'] = array(
-          '#type' => 'textfield',          
+          '#type' => 'textfield',
+          '#title' => t('What code is in the image?'),
           '#description' => t('Enter the characters shown in the image.'),
           '#weight' => 0,
           '#required' => TRUE,

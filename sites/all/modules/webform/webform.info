@@ -40,9 +40,9 @@ files[] = tests/permissions.test
 files[] = tests/submission.test
 files[] = tests/webform.test
 
-; Information added by Drupal.org packaging script on 2015-04-29
-version = "7.x-4.8"
+; Information added by Drupal.org packaging script on 2015-05-26
+version = "7.x-4.9"
 core = "7.x"
 project = "webform"
-datestamp = "1430334485"
+datestamp = "1432669985"
 

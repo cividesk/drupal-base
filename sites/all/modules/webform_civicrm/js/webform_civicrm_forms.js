@@ -98,7 +98,7 @@ var wfCivi = (function ($, D) {
         $(':visible', container).hide();
         container.append('<input type="submit" class="form-submit ajax-processed civicrm-remove-file" value="' + Drupal.t('Change') + '" onclick="wfCivi.clearFileField(\'' + field + '\'); return false;">');
       }
-      container.prepend('<span class="civicrm-file-icon"><img alt="' + Drupal.t('File') + '" src="' + info.icon + '" /> ' + (info.name || '') + '</span>');
+      container.prepend('<span class="civicrm-file-icon"><img alt="' + Drupal.t('File') + '" src="' + info.icon + '" /> ' + (info.name? ('<a href="'+ info.file_url+ '" target="_blank">'+info.name +'</a>'): '' || '') + '</span>');
     }
   };
 
@@ -170,7 +170,6 @@ var wfCivi = (function ($, D) {
       if ($el.length) {
         // For chain-select fields, store value for later if it's not available
         if ((fid.substr(fid.length - 9) === 'county_id' || fid.substr(fid.length - 11) === 'province_id') && !$('option[value='+val+']', $el).length) {
-          console.log($el);
           $el.attr('data-val', val);
         }
         else if ($el.val() !== val) {

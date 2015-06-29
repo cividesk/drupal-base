@@ -98,7 +98,7 @@ var wfCivi = (function ($, D) {
         $(':visible', container).hide();
         container.append('<input type="submit" class="form-submit ajax-processed civicrm-remove-file" value="' + Drupal.t('Change') + '" onclick="wfCivi.clearFileField(\'' + field + '\'); return false;">');
       }
-      container.prepend('<span class="civicrm-file-icon"><img alt="' + Drupal.t('File') + '" src="' + info.icon + '" /> ' + (info.name? ('<a href="'+ info.file_url+ '" target="_blank">'+info.name +'</a>'): '' || '') + '</span>');
+      container.prepend('<span class="civicrm-file-icon"><img alt="' + Drupal.t('File') + '" src="' + info.icon + '" /> ' + (info.name || '') + '</span>');
     }
   };
 
@@ -128,7 +128,12 @@ var wfCivi = (function ($, D) {
           if (n[5] === 'country') {
             $('select.civicrm-processed', this).val(setting.defaultCountry).trigger('change', 'webform_civicrm:reset');
           } else {
-            $(':input', this).not(':radio, :checkbox, :button, :submit').val('').trigger('change', 'webform_civicrm:reset');
+            $(':input', this).not(':radio, :checkbox, :button, :submit, :file, .form-file').each(function() {
+              if (this.id && $(this).val() != '') {
+                $(this).val('');
+                $(this).trigger('change', 'webform_civicrm:reset');
+              }
+            });
             $('.civicrm-remove-file', this).click();
             $('input:checkbox, input:radio', this).each(function() {
               $(this).removeAttr('checked').trigger('change', 'webform_civicrm:reset');
@@ -170,6 +175,7 @@ var wfCivi = (function ($, D) {
       if ($el.length) {
         // For chain-select fields, store value for later if it's not available
         if ((fid.substr(fid.length - 9) === 'county_id' || fid.substr(fid.length - 11) === 'province_id') && !$('option[value='+val+']', $el).length) {
+          console.log($el);
           $el.attr('data-val', val);
         }
         else if ($el.val() !== val) {

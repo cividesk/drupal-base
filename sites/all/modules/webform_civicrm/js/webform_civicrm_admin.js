@@ -294,7 +294,7 @@ var wfCiviAdmin = (function ($, D) {
         var label = [];
         $('fieldset.activity-wrapper', context).each(function() {
           var caseType = $('select[name$=case_type_id]', this).val();
-          var prefix = caseType != '0' ? $('select[name$=case_type_id] option:selected', this).text() + ': ' : '';
+          var prefix = caseType && caseType != '0' ? $('select[name$=case_type_id] option:selected', this).text() + ': ' : '';
           label.push(prefix + $('select[name$=activity_type_id] option:selected', this).text());
         });
         return label.join('<br />') || Drupal.t('- None -');
@@ -332,6 +332,13 @@ var wfCiviAdmin = (function ($, D) {
       $('select[name=participant_reg_type]', context).once('wf-civi').change(function() {
         showHideParticipantOptions('fast');
       });
+
+      // Update activity block when changing # of cases to refresh the "file on case" selector
+      if ($(context).is('#civicrm-ajax-caseTab-case')) {
+        if ($('select[name=activity_number_of_activity]').val() !== '0') {
+          $('select[name=activity_number_of_activity]').change();
+        }
+      };
 
       $('#edit-nid', context).once('wf-civi').change(function() {
         if ($(this).is(':checked')) {

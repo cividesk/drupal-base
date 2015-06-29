@@ -96,11 +96,6 @@ function wf_crm_field_options($field, $context, $data) {
           $ret[number_format(str_replace(',', '', $key), 2, '.', '')] = $val;
         }
       }
-
-      // Hack to remove payment processors we don't support
-      if ($name == 'payment_processor_id') {
-        wf_crm_supported_payment_processors($ret);
-      }
     }
     // Remove options that were set behind the scenes on the admin form
     if ($context != 'config_form' && !empty($field['extra']['multiple']) && !empty($field['expose_list'])) {
@@ -349,14 +344,6 @@ function wf_crm_get_privacy_options() {
   );
 }
 
-function wf_crm_supported_payment_processors(&$ret) {
-  foreach(wf_crm_apivalues('payment_processor', 'get', array('is_test' => 0)) as $processor) {
-    if (!in_array($processor['billing_mode'], array(1, 3))) {
-      unset($ret[$processor['id']]);
-    }
-  }
-}
-
 /**
  * Get relationship type data
  *
@@ -410,6 +397,19 @@ function wf_crm_get_contact_relationship_types($type_a, $type_b, $sub_type_a, $s
     }
   }
   return $ret;
+}
+
+function wf_crm_get_matching_rules($contact_type) {
+  static $rules;
+  $contact_type = ucfirst($contact_type);
+  if (!$rules) {
+    $rules = array('Individual', 'Organization', 'Household');
+    $dao = CRM_Core_DAO::executeQuery('SELECT * FROM civicrm_dedupe_rule_group');
+    while ($dao->fetch()) {
+      $rules[$dao->contact_type][$dao->id] = $dao->title;
+    }
+  }
+  return $rules[$contact_type];
 }
 
 /**
@@ -530,6 +530,11 @@ function wf_crm_get_fields($var = 'fields') {
         'contact_type' => $key == 'household' ? 'household' : 'organization',
       );
     }
+    $fields['contact_sic_code'] = array(
+      'name' => t('SIC Code'),
+      'type' => 'textfield',
+      'contact_type' => 'organization',
+    );
     // Individual names
     if (empty($config->civiVersion) || substr($config->civiVersion, 0, 3) == '4.4') {
       // This setting doesn't exist prior to 4.5 so hard-code it.
@@ -555,7 +560,8 @@ function wf_crm_get_fields($var = 'fields') {
     );
     $fields['contact_gender_id'] = array(
       'name' => t('Gender'),
-      'type' => 'select',
+      // Gender should be textfield if using https://civicrm.org/extensions/gender-self-identify
+      'type' => function_exists('genderselfidentify_civicrm_apiWrappers') ? 'textfield' : 'select',
       'contact_type' => 'individual',
     );
     $fields['contact_job_title'] = array(
@@ -760,7 +766,6 @@ function wf_crm_get_fields($var = 'fields') {
       'expose_list' => TRUE,
       'extra' => array(
         'multiple' => 1,
-        'required' => 1,
       ),
       'data_type' => 'ContactReference',
     );
@@ -835,6 +840,7 @@ function wf_crm_get_fields($var = 'fields') {
         'expose_list' => TRUE,
         'extra' => array('required' => 1, 'multiple' => $case_info->getAllowMultipleCaseClients()),
         'data_type' => 'ContactReference',
+        'set' => 'caseRoles',
         'value' => 1,
       );
       $fields['case_status_id'] = array(
@@ -853,12 +859,37 @@ function wf_crm_get_fields($var = 'fields') {
         'type' => 'textfield',
       );
       $fields['case_creator_id'] = array(
-        'name' => t('Case # Manager'),
+        'name' => t('Case # Creator'),
         'type' => 'select',
         'expose_list' => TRUE,
         'data_type' => 'ContactReference',
+        'set' => 'caseRoles',
         'exposed_empty_option' => '- ' . t('Automatic') . ' -',
       );
+      // Fetch case roles
+      $sets['caseRoles'] = array('entity_type' => 'case', 'label' => t('Case Roles'));
+      // Use the vanilla civicrm_api for this because it will throw an error in CiviCRM 4.4 (api doesn't exist)
+      $case_types = civicrm_api('case_type', 'get', array('version' => 3, 'options' => array('limit' => 0)));
+      foreach (wf_crm_aval($case_types, 'values', array()) as $case_type) {
+        foreach ($case_type['definition']['caseRoles'] as $role) {
+          foreach (wf_crm_get_relationship_types() as $rel_type) {
+            if ($rel_type['name_b_a'] == $role['name']) {
+              if (!isset($fields['case_role_' . $rel_type['id']])) {
+                $fields['case_role_' . $rel_type['id']] = array(
+                  'name' => $rel_type['label_b_a'],
+                  'type' => 'select',
+                  'expose_list' => TRUE,
+                  'data_type' => 'ContactReference',
+                  'set' => 'caseRoles',
+                  'empty_option' => t('None'),
+                );
+              }
+              $fields['case_role_' . $rel_type['id']]['case_types'][] = $case_type['id'];
+              break;
+            }
+          }
+        }
+      }
     }
     $fields['relationship_relationship_type_id'] = array(
       'name' => t('Relationship Type(s)'),
@@ -1005,6 +1036,11 @@ function wf_crm_get_fields($var = 'fields') {
         'value' => 1,
         'empty_option' => t('Enter Dates Manually'),
       );
+      if (isset($sets['contribution'])) {
+        $fields['membership_fee_amount'] = array(
+          'name' => t('Membership Fee'),
+        ) + $moneyDefaults;
+      }
       $fields['membership_join_date'] = array(
         'name' => t('Member Since'),
         'type' => 'date',
@@ -1216,6 +1252,16 @@ function wf_crm_get_fields($var = 'fields') {
           $fields[$id]['extra']['description'] = $dao->help_pre ? $dao->help_pre : $dao->help_post;
           $fields[$id]['has_help'] = TRUE;
         }
+        // Conditional rule - todo: support additional entities
+        if ($sets[$set]['entity_type'] == 'contact' && !empty($sets[$set]['sub_types'])) {
+          $fields[$id]['civicrm_condition'] = array(
+            'andor' => 'or',
+            'action' => 'show',
+            'rules' => array(
+              'contact_contact_sub_type' => $sets[$set]['sub_types'],
+            ),
+          );
+        }
 
         if ($dao->entity_type == 'relationship' && $dao->sub_types) {
           $fields[$id]['attributes']['data-relationship-type'] = implode(',', wf_crm_explode_multivalue_str($dao->sub_types));
@@ -1298,17 +1344,12 @@ function wf_crm_user_cid($id = NULL, $type = 'uf') {
     $domain = wf_civicrm_api('domain', 'get', array('current_domain' => 1, 'return.id' => 1));
     $domain = wf_crm_aval($domain, 'id', 1);
   }
-  $result = wf_civicrm_api('uf_match', 'get', array($type . '_id' => $id));
-  if (!empty($result['values'])) {
-    foreach ($result['values'] as $val) {
-      if ($val['domain_id'] == $domain) {
-        break;
-      }
-    }
+  $result = wf_civicrm_api('uf_match', 'getsingle', array($type . '_id' => $id, 'domain_id' => $domain));
+  if (empty($result['is_error'])) {
     if (!empty($user_lookup)) {
-      $current_user = $val['contact_id'];
+      $current_user = $result['contact_id'];
     }
-    return $type == 'uf' ? $val['contact_id'] : $val['uf_id'];
+    return $type == 'uf' ? $result['contact_id'] : $result['uf_id'];
   }
 }
 

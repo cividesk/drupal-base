@@ -45,6 +45,11 @@ form .hidden,
   display:inline;
 }
 
+#wf-crm-configure-form .number-of .form-item select,
+#wf-crm-configure-form select[name=participant_reg_type] {
+  max-width: none;
+}
+
 th div.form-type-radio {
   display:inline;
   margin:0;

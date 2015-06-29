@@ -70,6 +70,18 @@ class wf_crm_admin_help {
     self::contact_contact_id();
   }
 
+  static function matching_rule() {
+    print '<p>' .
+      t('This determines how an <em>unknown</em> contact will be handled when the webform is submitted.') .
+      '</p><ul>' .
+      '<li>' . t('Select the "Default Unsupervised" rule for the same duplicate matching used by CiviCRM event registration &amp contribution forms.') . '</li>' .
+      '<li>' . t('Select a specific rule to customize how matching is performed.') . '</li>' .
+      '<li>' . t('Or select "- None -" to always create a new contact.') . '</li>' .
+      '</ul><p>' .
+      t('Note: Matching rules are only used if the contact is not already selected via "Existing Contact" field.') .
+      '</p>';
+  }
+
   static function address_master_id() {
     print '<p>' .
       t('When selected, will hide fields for this address and use those of the other contact.') .
@@ -179,6 +191,22 @@ class wf_crm_admin_help {
       '</p>';
   }
 
+  static function reg_options_disable_unregister() {
+    print '<p>' .
+      t('If this is selected, on "User Select mode", participants will not be unregistered from unchecked events.') .
+      '</p>';
+  }
+
+  static function reg_options_allow_url_load() {
+    print '<p>' .
+      t('Allow events in "User Select" mode to be auto-filled from URL.') .
+      '</p>'.'<br /><p>'.t('Example for "Register all":') .
+      '<br /><code>' . url("node", array('absolute' => TRUE)) . '/{node.nid}?event1={event1.event_id},{event2.event_id}</code></p><br />'.
+      t('Example for "Register separately":') .
+      '<br /><code>' . url("node", array('absolute' => TRUE)) . 
+      '/{node.nid}?c1event1={event1.event_id},{event2.event_id}&amp;c2event1={event3.event_id}</code></p>';
+  }
+
   static function reg_options_show_past_events() {
     print '<p>' .
       t('Upcoming events will always be shown. To also display events that have ended, choose an option for how far in the past to search.') .
@@ -211,8 +239,19 @@ class wf_crm_admin_help {
     print '<p>' .
       t('Membership dates will be filled automatically by selecting terms. This can be overridden by entering dates manually.') .
      '</p><p>' .
-      t('Note: Number of terms is required to calculate membership fees for paid memberships. Fees will not be charged when dates are entered manually') .
+      t('Note: Number of terms is required to calculate membership fees for paid memberships.') .
+     '</p><p>'.
+      t('If you choose to enter dates manually, enabling membership fee field will provide the price. Otherwise the membership will be free') .
      '</p>';
+  }
+
+  static function membership_fee_amount() {
+    print '<p>' .
+      t('Price for this membership per term. If this field is enabled, the default minimum membership fee from CiviCRM membership type settings will not be loaded.') .
+      '</p><p>' .
+      t('Note that if this field is enabled, the default minimum membership fee from CiviCRM membership type settings will not be loaded.') .
+     '</p>';
+    self::fee();
   }
 
   static function multiselect_options() {
@@ -290,9 +329,9 @@ class wf_crm_admin_help {
 
   static function file_on_case() {
     print '<p>' .
-      t('Activity will be added to an existing case matching the following criteria.') .
+      t('Add this activity to either a specific case from this webform, or an already existing case based on matching criteria.') .
       '</p><p>' .
-      t('This will not open a new case; use the "Cases" tab to do so. Match these settings to those on the "Cases" tab if you wish this activity to be filed on a newly-created case.') .
+      t('These options will not open a new case; configure the "Cases" section to do so.') .
       '</p>';
   }
 

@@ -16,6 +16,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
   private $multiPageDataLoaded;
   private $billing_params = array();
   private $totalContribution = 0;
+  private $contributionIsIncomplete = FALSE;
   private $contributionIsPayLater = FALSE;
 
   // During validation this contains an array of known contact ids and the placeholder 0 for valid contacts
@@ -32,6 +33,10 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
   // Cache an instance of this object
   // @see self::singleton()
   static $singleton;
+
+  const
+    BILLING_MODE_LIVE = 1,
+    BILLING_MODE_MIXED = 3;
 
   function __construct($node) {
     civicrm_initialize();
@@ -80,15 +85,15 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     }
 
     // Process live contribution. If the transaction is unsuccessful it will trigger a form validation error.
-    if ($this->getContributionPage()) {
+    if ($this->contribution_page) {
       // Ensure contribution js is still loaded if the form has to refresh
       $this->addPaymentJs();
       $this->loadMultiPageData();
       if ($this->tallyLineItems()) {
-        if ($this->isPaymentPage() && !form_get_errors()) {
+        if ($this->isLivePaymentProcessor() && $this->isPaymentPage() && !form_get_errors()) {
           if ($this->validateBillingFields()) {
             if ($this->createBillingContact()) {
-              $this->submitPayment();
+              $this->submitLivePayment();
             }
           }
         }
@@ -157,7 +162,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
 
     // Save a non-live transaction
     if (empty($this->ent['contribution'][1]['id']) && $this->totalContribution) {
-      $this->payLaterContribution();
+      $this->createDeferredPayment();
     }
 
     // Create/update other data associated with contacts
@@ -230,6 +235,11 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     // Write record; we do this when creating, updating, or saving a draft of a webform submission.
     $record = $this->formatSubmission();
     drupal_write_record('webform_civicrm_submissions', $record, $this->update);
+
+    // Calling an IPN payment processor will result in a redirect so this happens after everything else
+    if (empty($this->submission->is_draft) && !empty($this->ent['contribution'][1]['id']) && $this->contributionIsIncomplete && !$this->contributionIsPayLater) {
+      $this->submitIPNPayment();
+    }
   }
 
   /**
@@ -256,7 +266,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     $errors = form_get_errors();
     foreach ((array) $errors as $key => $error) {
       $pieces = wf_crm_explode_key(substr($key, strrpos($key, '][') + 2));
-      if($pieces) {
+      if ($pieces) {
         list( , $c, $ent, $n, $table, $name) = $pieces;
         if ($this->isFieldHiddenByExistingContactSettings($ent, $c, $table, $n, $name)) {
           $this->unsetError($key);
@@ -525,34 +535,55 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
    * @return int
    */
   private function findDuplicateContact($contact) {
-    $params = array('check_permission' => FALSE);
-    foreach ($contact as $table => $field) {
-      if (is_array($field) && !empty($field[1])) {
-        if (substr($table, 0, 2) == 'cg') {
-          //TODO pass custom data to deduper
-        }
-        // If sharing an address, use the master
-        elseif ($table == 'address' && !empty($field[1]['master_id'])) {
-          $m = $field[1]['master_id'];
-          // If master address is exposed to the form, use it
-          if (!empty($contact[$m]['address'][1])) {
-            $params['civicrm_address'] = $contact[$m]['address'][1];
+    $dupes = $rule_type = $rule_id = NULL;
+    $rule = wf_crm_aval($contact, 'matching_rule', 'Unsupervised', TRUE);
+    if ($rule) {
+      $params = array('check_permission' => FALSE);
+      foreach ($contact as $table => $field) {
+        if (is_array($field) && !empty($field[1])) {
+          if (substr($table, 0, 2) == 'cg') {
+            //TODO pass custom data to deduper
           }
-          // Else look up the master contact's address
-          elseif (!empty($this->existing_contacts[$m])) {
-            $masters = wf_civicrm_api('address', 'get',
-              array('contact_id' => $this->ent['contact'][$m]['id'], 'sort' => 'is_primary DESC'));
-            if (!empty($masters['values'])) {
-              $params['civicrm_address'] = array_shift($masters['values']);
+          // If sharing an address, use the master
+          elseif ($table == 'address' && !empty($field[1]['master_id'])) {
+            $m = $field[1]['master_id'];
+            // If master address is exposed to the form, use it
+            if (!empty($contact[$m]['address'][1])) {
+              $params['civicrm_address'] = $contact[$m]['address'][1];
+            }
+            // Else look up the master contact's address
+            elseif (!empty($this->existing_contacts[$m])) {
+              $masters = wf_civicrm_api('address', 'get',
+                array(
+                  'contact_id' => $this->ent['contact'][$m]['id'],
+                  'sort' => 'is_primary DESC'
+                ));
+              if (!empty($masters['values'])) {
+                $params['civicrm_address'] = array_shift($masters['values']);
+              }
             }
           }
-        }
-        elseif (in_array($table, array('contact', 'address', 'email', 'phone', 'website'))) {
-          $params['civicrm_' . $table] = $field[1];
+          elseif (in_array($table, array(
+            'contact',
+            'address',
+            'email',
+            'phone',
+            'website'
+          ))) {
+            $params['civicrm_' . $table] = $field[1];
+          }
         }
       }
+      // This is either a default type (Unsupervised or Supervised) or the id of a specific rule
+      if (is_numeric($rule)) {
+        $rule_id = $rule;
+      }
+      else {
+        $rule_type = $rule;
+      }
+      $dupes = CRM_Dedupe_Finder::dupesByParams($params, ucfirst($contact['contact'][1]['contact_type']), $rule_type, array(), $rule_id);
     }
-    if ($dupes = CRM_Dedupe_Finder::dupesByParams($params, ucfirst($contact['contact'][1]['contact_type']))) {
+    if ($dupes) {
       return $dupes[0];
     }
     return 0;
@@ -568,7 +599,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     // CiviCRM API is too picky about this, imho
     $params['contact_type'] = ucfirst($params['contact_type']);
     unset($params['contact_id'], $params['id']);
-    if(!isset($params['source'])){
+    if (!isset($params['source'])) {
       $params['source'] = $this->settings['new_contact_source'];
     }
     // If creating individual with no first/last name,
@@ -928,12 +959,14 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
       foreach ($p as $e => $params) {
         $remove = array();
         $fid = "civicrm_{$c}_participant_{$e}_participant_event_id";
-        // Automatic status - de-selected events will be cancelled
-        if (empty($params['status_id'])) {
-          foreach ($this->getExposedOptions($fid) as $eid => $title) {
-            list($eid) = explode('-', $eid);
-            if (isset($existing[$eid])) {
-              $remove[$eid] = $title;
+        // Automatic status - de-selected events will be cancelled if 'disable_unregister' is not selected
+        if (empty($this->data['reg_options']['disable_unregister'])) {
+          if (empty($params['status_id'])) {
+            foreach ($this->getExposedOptions($fid) as $eid => $title) {
+              list($eid) = explode('-', $eid);
+              if (isset($existing[$eid])) {
+                $remove[$eid] = $title;
+              }
             }
           }
         }
@@ -961,9 +994,10 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
                 $params['id'] = $existing[$params['event_id']];
               }
               else {
-                if(isset($this->data['contact'][$c]['contact'][1]['source'])){
+                if (isset($this->data['contact'][$c]['contact'][1]['source'])) {
                   $params['source'] = $this->data['contact'][$c]['contact'][1]['source'];
-                }else{
+                }
+                else {
                   $params['source'] = $this->settings['new_contact_source'];
                 }
                 if ($c > 1 && !empty($registered_by_id[$e][$i])) {
@@ -973,9 +1007,9 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
               // Automatic status
               if (empty($params['status_id']) && empty($params['id'])) {
                 $params['status_id'] = 'Registered';
-                // Pay later status
-                if ($this->contributionIsPayLater && !empty($params['fee_amount'])) {
-                  $params['status_id'] = 'Pending from pay later';
+                // Pending payment status
+                if ($this->contributionIsIncomplete && !empty($params['fee_amount'])) {
+                  $params['status_id'] = $this->contributionIsPayLater ? 'Pending from pay later' : 'Pending from incomplete transaction';
                 }
               }
               // Do not update status of existing participant in "Automatic" mode
@@ -1043,18 +1077,19 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
         }
       }
       if (empty($params['id'])) {
-        if(isset($this->data['contact'][$c]['contact'][1]['source'])){
+        if (isset($this->data['contact'][$c]['contact'][1]['source'])) {
           $params['source'] = $this->data['contact'][$c]['contact'][1]['source'];
-        }else{
+        }
+        else {
           $params['source'] = $this->settings['new_contact_source'];
         }
       }
       // Automatic status
       if (empty($params['status_id'])) {
         unset($params['status_id']);
-        // Pay later status
-        if ($this->contributionIsPayLater && $this->getMembershipTypeField($params['membership_type_id'], 'minimum_fee')) {
-          $params['is_pay_later'] = TRUE;
+        // Pending payment status
+        if ($this->contributionIsIncomplete && $this->getMembershipTypeField($params['membership_type_id'], 'minimum_fee')) {
+          $params['is_pay_later'] = $this->contributionIsPayLater;
           $params['status_id'] = 'Pending';
         }
       }
@@ -1153,6 +1188,17 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
           $this->ent['case'][$n]['id'] = $result['id'];
           // Save custom field data
           $this->saveCustomData($data, $result['id'], 'Case', FALSE);
+          // Save case roles
+          foreach ($params as $param => $val) {
+            if ($val && strpos($param, 'role_') === 0) {
+              wf_civicrm_api('relationship', 'create', array(
+                'relationship_type_id' => substr($param, 5),
+                'contact_id_a' => $params['client_id'],
+                'contact_id_b' => $val,
+                'case_id' => $result['id'],
+              ));
+            }
+          }
         }
       }
     }
@@ -1163,7 +1209,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
    */
   private function processActivities() {
     foreach (wf_crm_aval($this->data, 'activity', array()) as $n => $data) {
-      if (is_array($data) && !empty($data['activity'][1]['target_contact_id'])) {
+      if (is_array($data)) {
         $params = $data['activity'][1];
         // Create mode
         if (empty($this->ent['activity'][$n]['id'])) {
@@ -1216,16 +1262,26 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
         }
         // File on case
         if (!empty($this->data['activity'][$n]['case_type_id'])) {
-          $case_contact = $this->ent['contact'][$this->data['activity'][$n]['case_contact_id']]['id'];
-          if ($case_contact) {
-            // Proceed only if this activity is not already filed on a case
-            if (empty($params['id']) || !wf_crm_apivalues('case', 'get', array('activity_id' => $params['id']))) {
-              $case = $this->findCaseForContact($case_contact, array(
-                'status_id' => $this->data['activity'][$n]['case_status_id'],
-                'case_type_id' => $this->data['activity'][$n]['case_type_id'],
-              ));
-              if ($case) {
-                $params['case_id'] = $case['id'];
+          // Webform case
+          if ($this->data['activity'][$n]['case_type_id'][0] === '#') {
+            $case_num = substr($this->data['activity'][$n]['case_type_id'], 1);
+            if (!empty($this->ent['case'][$case_num]['id'])) {
+              $params['case_id'] = $this->ent['case'][$case_num]['id'];
+            }
+          }
+          // Search for case by criteria
+          else {
+            $case_contact = $this->ent['contact'][$this->data['activity'][$n]['case_contact_id']]['id'];
+            if ($case_contact) {
+              // Proceed only if this activity is not already filed on a case
+              if (empty($params['id']) || !wf_crm_apivalues('case', 'get', array('activity_id' => $params['id']))) {
+                $case = $this->findCaseForContact($case_contact, array(
+                  'status_id' => $this->data['activity'][$n]['case_status_id'],
+                  'case_type_id' => $this->data['activity'][$n]['case_type_id'],
+                ));
+                if ($case) {
+                  $params['case_id'] = $case['id'];
+                }
               }
             }
           }
@@ -1248,7 +1304,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
                 $mail = array($assignee['email'] => $assignee);
                 // Include attachments while sending a copy of activity.
                 $attachments = CRM_Core_BAO_File::getEntityFile('civicrm_activity', $this->ent['act'][1]);
-                CRM_Case_BAO_Case::sendActivityCopy(NULL, $this->ent['act'][1], $mail, $attachments, NULL);
+                CRM_Case_BAO_Case::sendActivityCopy(NULL, $result['id'], $mail, $attachments, NULL);
               }
             }
           }
@@ -1321,9 +1377,19 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     foreach (wf_crm_aval($this->data, 'membership', array()) as $c => $memberships) {
       if (isset($this->existing_contacts[$c]) && !empty($memberships['number_of_membership'])) {
         foreach ($memberships['membership'] as $n => $item) {
-          if (!empty($item['num_terms']) && !empty($item['membership_type_id'])) {
+          if (!empty($item['membership_type_id'])) {
             $type = $item['membership_type_id'];
             $price = $this->getMembershipTypeField($type, 'minimum_fee');
+
+            //if number of terms is set, regard membership fee field as price per term
+            //if you choose to set dates manually while membership fee field is enabled, take the membership fee as total cost of this membership
+            if (isset($item['fee_amount'])) {
+              $price = $item['fee_amount'];
+              if (empty($item['num_terms'])) {
+                $item['num_terms'] = 1;
+              }
+            }
+
             if ($price) {
               $this->line_items[] = array(
                 'qty' => $item['num_terms'],
@@ -1354,8 +1420,23 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
   private function isPaymentPage() {
     $page = wf_crm_aval($this->form_state, 'storage:page_num', 1);
     $field = $this->getComponent('civicrm_1_contribution_1_contribution_contribution_page_id');
-    return $page == $field['page_num'] &&
-      !empty($this->data['contribution'][1]['contribution'][1]['payment_processor_id']);
+    return $page == $field['page_num'];
+  }
+
+  /**
+   * @return bool
+   */
+  private function isLivePaymentProcessor() {
+    if ($this->payment_processor) {
+      if ($this->payment_processor['billing_mode'] == self::BILLING_MODE_LIVE) {
+        return TRUE;
+      }
+      // In mixed mode (where there is e.g. a PayPal button + credit card fields) the cc field will contain a placeholder if the button was clicked
+      if ($this->payment_processor['billing_mode'] == self::BILLING_MODE_MIXED && wf_crm_aval($_POST, 'credit_card_number') != 'express') {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
   /**
@@ -1501,9 +1582,9 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
 
   /**
    * Execute payment processor transaction
-   * This happens during form validation
+   * This happens during form validation and sets a form error if unsuccessful
    */
-  private function submitPayment() {
+  private function submitLivePayment() {
     $result = wf_civicrm_api('contribution', 'transact', $this->contributionParams());
     if (empty($result['id'])) {
       if (!empty($result['error_message'])) {
@@ -1518,15 +1599,35 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
   }
 
   /**
-   * Create Pay-Later Contribution
+   * Create Incomplete (Pay-Later or IPN) Contribution
    */
-  private function payLaterContribution() {
+  private function createDeferredPayment() {
+    $this->contributionIsIncomplete = TRUE;
+    $this->contributionIsPayLater = empty($this->data['contribution'][1]['contribution'][1]['payment_processor_id']);
     $params = $this->contributionParams();
     $params['contribution_status_id'] = 'Pending';
-    $params['is_pay_later'] = 1;
+    $params['is_pay_later'] = $this->contributionIsPayLater;
     $result = wf_civicrm_api('contribution', 'create', $params);
     $this->ent['contribution'][1]['id'] = $result['id'];
-    $this->contributionIsPayLater = TRUE;
+  }
+
+  /**
+   * Call IPN payment processor to redirect to payment site
+   */
+  private function submitIPNPayment() {
+    $params = $this->data['contribution'][1]['contribution'][1];
+    $processor_type = wf_civicrm_api('payment_processor', 'getsingle', array('id' => $params['payment_processor_id']));
+    $mode = empty($params['is_test']) ? 'live' : 'test';
+    $paymentProcessor = CRM_Core_Payment::singleton($mode, $processor_type);
+    // Add contact details to params (most processors want a first_name and last_name)
+    $contact = wf_civicrm_api('contact', 'getsingle', array('id' => $this->ent['contact'][1]['id']));
+    $params += $contact;
+    $params['contributionID'] = $params['id'] = $this->ent['contribution'][1]['id'];
+    // Generate a fake qfKey in case payment processor redirects to contribution thank-you page
+    $params['qfKey'] = $this->getQfKey();
+    // Some processors want this one way, some want it the other
+    $params['amount'] = $params['total_amount'];
+    $paymentProcessor->doTransferCheckout($params, 'contribute');
   }
 
   /**

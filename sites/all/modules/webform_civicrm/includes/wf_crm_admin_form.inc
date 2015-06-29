@@ -52,8 +52,13 @@ class wf_crm_admin_form {
 
     // Sort fields by set
     foreach ($this->fields as $fid => $field) {
-      list($group) = explode('_', $fid, 2);
-      $this->sets[$group]['fields'][$fid] = $field;
+      if (isset($field['set'])) {
+        $set = $field['set'];
+      }
+      else {
+        list($set) = explode('_', $fid, 2);
+      }
+      $this->sets[$set]['fields'][$fid] = $field;
     }
 
     // Build form fields
@@ -219,10 +224,12 @@ class wf_crm_admin_form {
 
     // Contact sub-type
     $fid = 'civicrm_' . $n . '_contact_1_contact_contact_sub_type';
+    $subTypeIsUserSelect = FALSE;
     if (!empty($sub_types[$c['contact'][1]['contact_type']])) {
       $field = $this->fields['contact_contact_sub_type'];
       $field['name'] = t('Type of @contact', array('@contact' => $contact_types[$c['contact'][1]['contact_type']]));
-      $this->form['contact_' . $n]['contact_subtype_wrapper'][$fid] = $this->addItem($fid, $field);
+      $this->form['contact_' . $n]['contact_subtype_wrapper'][$fid] = $subTypeField = $this->addItem($fid, $field);
+      $subTypeIsUserSelect = in_array('create_civicrm_webform_element', $subTypeField['#default_value']);
       $this->addAjaxItem('contact_' . $n . ':contact_subtype_wrapper', $fid, 'contact_custom_wrapper');
     }
     // If no sub-types
@@ -248,7 +255,7 @@ class wf_crm_admin_form {
         continue;
       }
       if (!empty($set['sub_types'])) {
-        if (!array_intersect($c['contact'][1]['contact_sub_type'], $set['sub_types'])) {
+        if (!$subTypeIsUserSelect && !array_intersect($c['contact'][1]['contact_sub_type'], $set['sub_types'])) {
           continue;
         }
         $pos = &$this->form['contact_' . $n]['contact_subtype_wrapper']['contact_custom_wrapper'];
@@ -321,6 +328,27 @@ class wf_crm_admin_form {
         else {
           $pos[$n . $sid . $i . '_fieldset'] = $fieldset;
         }
+      }
+      if ($sid == 'contact') {
+        // Matching rule
+        $rule_field = $this->form['contact_' . $n]['contact_subtype_wrapper']["contact_{$n}_settings_matching_rule"] = array(
+          '#type' => 'select',
+          '#options' => array(
+              0 =>t('- None -'),
+              'Unsupervised' => t('Default Unsupervised'),
+              'Supervised' => t('Default Supervised'),
+            ) + wf_crm_get_matching_rules($c['contact'][1]['contact_type']),
+          '#title' => t('Matching Rule'),
+          '#prefix' => '<div class="number-of">',
+          '#suffix' => '</div>',
+          '#default_value' => wf_crm_aval($this->data['contact'][$n], 'matching_rule', 'Unsupervised', TRUE),
+        );
+        $rule_field =& $this->form['contact_' . $n]['contact_subtype_wrapper']["contact_{$n}_settings_matching_rule"];
+        // Reset to default if selected rule doesn't exist or isn't valid for this contact type
+        if (!array_key_exists($rule_field['#default_value'], $rule_field['#options'])) {
+          $rule_field['#default_value'] = $this->form_state['input']["contact_{$n}_settings_matching_rule"] = 'Unsupervised';
+        }
+        $this->help($rule_field, 'matching_rule');
       }
     }
   }
@@ -430,9 +458,22 @@ class wf_crm_admin_form {
             '#options' => array(t('- None -')) + $case_types,
             '#default_value' => $case_type = wf_crm_aval($this->data, "activity:$n:case_type_id"),
           );
+          // Allow selection of webform cases
+          $num_case = wf_crm_aval($this->data, "case:number_of_case", 0);
+          if ($num_case) {
+            $webform_cases = array();
+            for ($i=1; $i<=$num_case; ++$i) {
+              $webform_cases["#$i"] = t('Case !num', array('!num' => $i));
+            }
+            $wrap['case']["activity_{$n}_settings_case_type_id"]['#options'] = array(
+              t('- None -'),
+              t('This Webform') => $webform_cases,
+              t('Find by Case Type') => $case_types,
+            );
+          }
           $this->help($wrap['case']["activity_{$n}_settings_case_type_id"], 'file_on_case');
           $this->addAjaxItem("activityTab:activity:$num:wrap:case", "activity_{$n}_settings_case_type_id", '..:..:wrap');
-          if ($case_type) {
+          if ($case_type && $case_type[0] !== '#') {
             $wrap['case']['#type'] = 'fieldset';
             $wrap['case']['#attributes'] = array('class' => array('web-civi-checkbox-set'));
             $wrap['case']['#title'] = t('File On Case');
@@ -512,6 +553,10 @@ class wf_crm_admin_form {
    * FIXME: This is exactly the same code as buildGrantTab. More utilities and less boilerplate needed.
    */
   private function buildCaseTab() {
+    $types = wf_crm_apivalues('case', 'getoptions', array('field' => 'case_type_id'));
+    if (!$types) {
+      return;
+    }
     $this->form['caseTab'] = array(
       '#type' => 'fieldset',
       '#title' => t('Cases'),
@@ -543,29 +588,71 @@ class wf_crm_admin_form {
       );
       $this->help($this->form['caseTab']['case'][$fs]["case_{$n}_settings_existing_case_status"], 'existing_case_status');
       $case_type = wf_crm_aval($this->data, "case:{$n}:case:1:case_type_id");
-      foreach ($this->sets as $sid => $set) {
-        if ($set['entity_type'] == 'case' && (!$case_type || empty($set['sub_types']) || in_array($case_type, $set['sub_types']))) {
-          $fs1 = "case_case_{$n}_fieldset_$sid";
-          if ($sid == 'case') {
-            $pos = &$this->form['caseTab']['case'][$fs];
-          }
-          else {
-            $pos = &$this->form['caseTab']['case'][$fs]['wrap'];
-          }
-          $pos[$fs1] = array(
-            '#type' => 'fieldset',
-            '#title' => $set['label'],
-            '#attributes' => array('id' => $fs1, 'class' => array('web-civi-checkbox-set')),
-            'js_select' => $this->addToggle($fs1),
-          );
-          foreach ($set['fields'] as $fid => $field) {
-            $fid = "civicrm_{$n}_case_1_$fid";
+      foreach ($this->filterCaseSets($case_type) as $sid => $set) {
+        $fs1 = "case_case_{$n}_fieldset_$sid";
+        if ($sid == 'case') {
+          $pos = &$this->form['caseTab']['case'][$fs];
+        }
+        else {
+          $pos = &$this->form['caseTab']['case'][$fs]['wrap'];
+        }
+        $pos[$fs1] = array(
+          '#type' => 'fieldset',
+          '#title' => $set['label'],
+          '#attributes' => array('id' => $fs1, 'class' => array('web-civi-checkbox-set')),
+          'js_select' => $this->addToggle($fs1),
+        );
+        foreach ($set['fields'] as $fid => $field) {
+          $fid = "civicrm_{$n}_case_1_$fid";
+          if (!$case_type || empty($field['case_types']) || in_array($case_type, $field['case_types'])) {
             $pos[$fs1][$fid] = $this->addItem($fid, $field);
           }
         }
       }
       $this->addAjaxItem("caseTab:case:$fs:case_case_{$n}_fieldset_case", "civicrm_{$n}_case_1_case_case_type_id", "..:wrap");
     }
+  }
+
+  /**
+   * Adjust case role fields to match creator/manager settings for a given case type
+   *
+   * @param int|null $case_type
+   * @return array
+   */
+  private function filterCaseSets($case_type) {
+    $case_sets = array();
+    foreach ($this->sets as $sid => $set) {
+      if ($set['entity_type'] == 'case' && (!$case_type || empty($set['sub_types']) || in_array($case_type, $set['sub_types']))) {
+        if ($sid == 'caseRoles') {
+          // Lookup case-role names
+          $creator = $manager = NULL;
+          // Use the vanilla civicrm_api for this because it will throw an error in CiviCRM 4.4 (api doesn't exist)
+          $case_types = civicrm_api('case_type', 'get', array('version' => 3, 'id' => $case_type, 'options' => array('limit' => 0)));
+          foreach (wf_crm_aval($case_types, 'values', array()) as $type) {
+            foreach ($type['definition']['caseRoles'] as $role) {
+              if (!empty($role['creator'])) {
+                $creator = ($creator == $role['name'] || $creator === NULL) ? $role['name'] : FALSE;
+              }
+              if (!empty($role['manager'])) {
+                $manager = ($manager == $role['name'] || $manager === NULL) ? $role['name'] : FALSE;
+              }
+            }
+          }
+          if ($creator) {
+            $rel_type = wf_civicrm_api('relationshipType', 'getsingle', array('name_b_a' => $creator));
+            $label = $creator == $manager ? ts('Case # Creator/Manager') : ts('Case # Creator');
+            $set['fields']['case_creator_id']['name'] = $rel_type['label_b_a'] . ' (' . $label . ')';
+            unset($set['fields']['case_role_' . $rel_type['id']]);
+          }
+          if ($manager && $manager != $creator) {
+            $rel_type = wf_civicrm_api('relationshipType', 'getsingle', array('name_b_a' => $manager));
+            $set['fields']['case_role_' . $rel_type['id']]['name'] .= ' (' . ts('Case # Manager') . ')';
+          }
+        }
+        $case_sets[$sid] = $set;
+      }
+    }
+    return $case_sets;
   }
 
   /**
@@ -675,7 +762,19 @@ class wf_crm_admin_form {
       '#title' => t('Block Form Access when Event(s) are Full/Ended'),
       '#default_value' => (bool) wf_crm_aval($this->data, 'reg_options:block_form'),
     );
+    $this->form['participant']['reg_options']['disable_unregister'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Disable unregistering participants from unselected events.'),
+      '#default_value' => (bool) wf_crm_aval($this->data, 'reg_options:disable_unregister'),
+    );
+    $this->form['participant']['reg_options']['allow_url_load'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Allow events to be autoloaded from URL'),
+      '#default_value' => (bool) wf_crm_aval($this->data, 'reg_options:allow_url_load'),
+    );
     $this->help($this->form['participant']['reg_options']['block_form'], 'reg_options_block_form');
+    $this->help($this->form['participant']['reg_options']['disable_unregister'], 'reg_options_disable_unregister');
+    $this->help($this->form['participant']['reg_options']['allow_url_load'], 'reg_options_allow_url_load');
     $this->addAjaxItem('participant', 'participant_reg_type', 'participants');
     $this->addAjaxItem('participant', 'event_type', 'participants');
     $this->addAjaxItem('participant', 'show_past_events', 'participants');
@@ -838,9 +937,13 @@ class wf_crm_admin_form {
 
   /**
    * Grant settings
-   * FIXME: This is exactly the same code as buildCaseTab. More utilities and less boilerplate needed.
+   * FIXME: This is nearly the same code as buildCaseTab. More utilities and less boilerplate needed.
    */
   private function buildGrantTab() {
+    $types = wf_crm_apivalues('grant', 'getoptions', array('field' => 'grant_type_id'));
+    if (!$types) {
+      return;
+    }
     $this->form['grantTab'] = array(
       '#type' => 'fieldset',
       '#title' => t('Grants'),
@@ -1144,7 +1247,9 @@ class wf_crm_admin_form {
   }
 
   /**
-   * Add an ajax container to the form, and set an existing form element to control it
+   * Boilerplate-reducing helper function for FAPI ajax.
+   * Set an existing form element to control an ajax container.
+   * The container will be created if it doesn't already exist.
    *
    * @param string $path
    *   A : separated string of nested array keys leading to the control element's parent
@@ -1156,7 +1261,10 @@ class wf_crm_admin_form {
    *   Css class to add to target container
    */
   private function addAjaxItem($path, $control_element, $container, $class='civicrm-ajax-wrapper') {
+    // Get a reference to the control container
+    // For anyone who wants to call this evil - I challenge you to find a better way to accomplish this
     eval('$control_container = &$this->form[\'' . str_replace(':', "']['", $path) . "'];");
+    // Now find the container element (may be outside the $path if .. is used)
     foreach (explode(':', $container) as $level) {
       if ($level == '..') {
         $path = substr($path, 0, strrpos($path, ':'));
@@ -1226,6 +1334,7 @@ class wf_crm_admin_form {
             'contact_type' => 'individual',
             'contact_sub_type' => array(),
           )),
+          'matching_rule' => 'Unsupervised',
         );
         // Set defaults for new contact
         $this->settings += array(
@@ -1251,14 +1360,26 @@ class wf_crm_admin_form {
       elseif (strpos($key, '_settings_') !== FALSE) {
         list($ent, $c, , $key) = explode('_', $key, 4);
         $val = is_array($val) ? array_filter($val) : $val;
-        $this->data[$ent][$c][$key] = $val;
+        // Don't store settings for nonexistant contacts. Todo: check other entities
+        if (isset($this->data[$ent][$c]) || $ent !== 'contact') {
+          $this->data[$ent][$c][$key] = $val;
+        }
       }
     }
+    // Defaults when adding an activity
     for ($i=1; $i <= $this->settings['activity_number_of_activity']; ++$i) {
-      if (!isset($this->settings["activity_{$i}_existing_activity_status"])) {
+      if (!isset($this->settings["activity_{$i}_settings_existing_activity_status"])) {
         $this->data['activity'][$i]['activity'][1]['target_contact_id'] = range(1, $this->settings['number_of_contacts']);
       }
     }
+    // Defaults when adding a case
+    for ($i=1; $i <= wf_crm_aval($this->settings, 'case_number_of_case'); ++$i) {
+      if (!isset($this->settings["civicrm_{$i}_case_1_case_case_type_id"])) {
+        $case_types = array_keys(wf_crm_apivalues('Case', 'getoptions', array('field' => 'case_type_id')));
+        $this->data['case'][$i]['case'][1]['case_type_id'] = $case_types[0];
+      }
+    }
+    // Store event settings
     if (isset($this->settings['participant_reg_type'])) {
       $this->data['participant_reg_type'] = $this->settings['participant_reg_type'];
       $this->data['reg_options'] = $this->settings['reg_options'];
@@ -1418,6 +1539,9 @@ class wf_crm_admin_form {
                 );
                 self::insertComponent($field, $enabled, $this->settings);
                 $created[] = $field['name'];
+                if (isset($field['civicrm_condition'])) {
+                  $this->addConditionalRule($field, $enabled);
+                }
               }
             }
           }
@@ -1458,6 +1582,53 @@ class wf_crm_admin_form {
     // Clear the entity cache.
     if (module_exists('entitycache')) {
       cache_clear_all($nid, 'cache_entity_node');
+    }
+  }
+
+  /**
+   * Create a conditional rule if the source and target fields both exist.
+   * TODO: This is fairly minimal. It doesn't check if the rule already exists,
+   * and doesn't work if both fields haven't been created yet.
+   *
+   * @param array $field
+   * @param array $enabled
+   */
+  private function addConditionalRule($field, $enabled) {
+    list(, $c, $ent, $n, $table, $name) = explode('_', $field['form_key'], 6);
+    $rgid = $weight = -1;
+    foreach ($this->node->webform['conditionals'] as $rgid => $existing) {
+      $weight = $existing['weight'];
+    }
+    $rgid++;
+    $rule_group = $field['civicrm_condition'] + array(
+      'nid' => $this->node->nid,
+      'rgid' => $rgid,
+      'weight' => $weight,
+      'target' => $enabled[$field['form_key']],
+      'target_type' => 'component',
+    );
+    $rule_group['rules'] = array();
+    foreach ($field['civicrm_condition']['rules'] as $source => $conditions) {
+      $source_key = "civicrm_{$c}_{$ent}_{$n}_{$source}";
+      $source_id = wf_crm_aval($enabled, $source_key);
+      if ($source_id) {
+        $options = wf_crm_field_options(array('form_key' => $source_key), '', $this->settings['data']);
+        foreach ($conditions as $condition) {
+          if (isset($options[$condition])) {
+            $rule_group['rules'][] = array(
+              'source_type' => 'component',
+              'source' => $source_id,
+              'operator' => 'equal',
+              'value' => $condition,
+            );
+          }
+        }
+      }
+    }
+    if ($rule_group['rules']) {
+      $this->node->webform['conditionals'][] = $rule_group;
+      module_load_include('inc', 'webform', 'includes/webform.conditionals');
+      webform_conditional_insert($rule_group);
     }
   }
 
@@ -1691,3 +1862,9 @@ function wf_crm_configure_form_submit($form, &$form_state) {
   $admin_form->postProcess();
 }
 
+/**
+ * FAPI AJAX callback
+ */
+function wf_crm_configure_form_ajax($form, $form_state) {
+  return wf_crm_aval($form, $form_state['triggering_element']['#ajax']['pathstr']);
+}

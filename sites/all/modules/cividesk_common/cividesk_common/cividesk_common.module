@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the cividesk_common feature.
+ */
+
+include_once 'cividesk_common.features.inc';

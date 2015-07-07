@@ -536,7 +536,7 @@ abstract class wf_crm_webform_base {
     }
     $file = wf_crm_apivalues('file', 'get', $val);
 	$entity_id = '';
-    if ($entity && strpos($fieldName, 'custom_') === 0 ) {
+    if ($entity && ( strpos($fieldName, 'custom_') === 0 ||  strpos($fieldName, 'file_') === 0)) {
 		switch ( $entity ) {
 		case 'contact':
 			$entity_id = $_GET['cid1'];

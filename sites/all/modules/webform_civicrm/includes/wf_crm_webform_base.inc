@@ -540,7 +540,7 @@ abstract class wf_crm_webform_base {
       $entity_id = $this->ent[$entity][$n]['id'];
 		  switch ( $entity ) {
 		  case 'relationship':
-			  $entity_id = $_GET['relationship'];
+			  $entity_id = $_GET['relationship1'];
 			  break;
 		  }
     }

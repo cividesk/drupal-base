@@ -417,7 +417,8 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         if ($cid === 0) {
           $this->ent['contact'][$c]['id'] = $cid;
         }
-        else {
+        // This property may not exist in components created before v4.12 so default to TRUE if not set
+        elseif (wf_crm_aval($component['extra'], 'allow_url_autofill', TRUE, TRUE)) {
           if (wf_crm_contact_access($component, $filters, $cid) !== FALSE) {
             $this->ent['contact'][$c]['id'] = $cid;
           }
@@ -459,8 +460,8 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         // Don't pick the same contact twice unless explicitly told to do so
         if (!$dupes_allowed) {
           foreach($this->ent['contact'] as $contact) {
-            if ($cid == $contact['id']) {
-              continue;
+            if (!empty($contact['id']) && $cid == $contact['id']) {
+              continue 2;
             }
           }
         }
@@ -549,11 +550,7 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
             }
             // Contact image & custom file fields
             if ($dt == 'File') {
-              $entity = $ent;
-              if ($table == 'relationship'){
-                $entity = 'relationship'; // temporary fix
-              }            
-              $fileInfo = $this->getFileInfo($name, $val, $entity, $n);
+              $fileInfo = $this->getFileInfo($name, $val, $ent, $n);
               if ($fileInfo && in_array($element['#type'], array('file', 'managed_file'))) {
                 $fileInfo = json_encode($fileInfo);
                 $js = "jQuery(function() {wfCivi.initFileField('$eid', $fileInfo)});";
@@ -605,12 +602,35 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
     }
     foreach ($this->line_items as $item) {
       $total += $item['line_total'];
-      $label = $item['label'] . ($item['qty'] > 1 ? " ({$item['qty']})" : '');
-      $rows[] = array(
-        'data' => array($label, CRM_Utils_Money::format($item['line_total'])),
-        'class' => array($item['element'], 'line-item'),
-        'data-amount' => $item['line_total'],
-      );
+      // tax integration
+      if (!is_null($this->tax_rate)) {
+        // Change the line item label to display the tax rate it contains
+        $taxSettings = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::CONTRIBUTE_PREFERENCES_NAME, 'contribution_invoice_settings');
+        
+        if ($taxSettings['tax_display_settings'] != 'Do_not_show') {
+          $item['label'] .= ' (' . t('includes !rate @tax', array('!rate' => $this->tax_rate . '%', '@tax' => $taxSettings['tax_term'])) . ')';
+        }
+      
+        // Add calculation for financial type that contains tax
+        $item['tax_amount'] = ($this->tax_rate / 100) * $item['line_total'];
+        $total += $item['line_total'] * (($this->tax_rate / 100) + 1);
+        $label = $item['label'] . ($item['qty'] > 1 ? " ({$item['qty']})" : '');
+        $rows[] = array(
+          'data' => array($label, CRM_Utils_Money::format($item['line_total'] * (($this->tax_rate / 100) + 1))),
+          'class' => array($item['element'], 'line-item'),
+          'data-amount' => $item['line_total'] * (($this->tax_rate / 100) + 1),
+          'data-tax' => (int)$this->tax_rate,
+        );
+      }else{
+        $total += $item['line_total'];
+      
+        $label = $item['label'] . ($item['qty'] > 1 ? " ({$item['qty']})" : '');
+        $rows[] = array(
+          'data' => array($label, CRM_Utils_Money::format($item['line_total'])),
+          'class' => array($item['element'], 'line-item'),
+          'data-amount' => $item['line_total'],
+        );
+      }
     }
     $rows[] = array(
       'data' => array(t('Total'), CRM_Utils_Money::format($total)),

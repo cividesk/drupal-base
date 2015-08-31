@@ -17,11 +17,11 @@ abstract class wf_crm_webform_base {
   protected $line_items = array();
   protected $membership_types = array();
 
-
   // No direct access - storage for variables fetched via __get
   private $_payment_processor;
   private $_contribution_page;
-
+  // tax integration
+  private $_tax_rate;
 
   /**
    * Magic method to retrieve otherwise inaccessible properties
@@ -44,6 +44,18 @@ abstract class wf_crm_webform_base {
           $this->_contribution_page = wf_civicrm_api('contribution_page', 'getsingle', array('id' => $contribution_page_id));
         }
         return $this->_contribution_page;
+        
+      case 'tax_rate':
+        $taxSettings = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::CONTRIBUTE_PREFERENCES_NAME, 'contribution_invoice_settings');
+        if (is_array($taxSettings) && !empty($taxSettings['invoicing'])) {
+            if ($this->contribution_page) {
+              // tax integration
+              $taxRates = CRM_Core_PseudoConstant::getTaxRates();
+              $this->_tax_rate = $taxRates[$this->_contribution_page['financial_type_id']];
+            }
+            return $this->_tax_rate;
+        }
+        return;
       
       default:
         throw new Exception('Unknown property');
@@ -230,6 +242,16 @@ abstract class wf_crm_webform_base {
    */
   protected function getExposedOptions($field_key, $exclude = array()) {
     $field = $this->getComponent($field_key);
+    
+    if ($field && $field['type'] == 'hidden') {
+      // Fetch live options
+      $exposed = wf_crm_field_options($field, 'live_options', $this->data);
+      foreach ($exclude as $i) {
+       unset($exposed[$i]);
+      }
+      return $exposed;
+    }
+    
     if ($field && $field['type'] == 'select') {
       // Fetch static options
       if (empty($field['extra']['civicrm_live_options'])) {
@@ -521,9 +543,11 @@ abstract class wf_crm_webform_base {
    * Retrieve info needed for pre-filling a webform file field
    * @param string $fieldName
    * @param string|int $val: url or civi file id
+   * @param string|null $entity: entity name
+   * @param int|null $n: entity id
    * @return array|null
    */
-  function getFileInfo($fieldName, $val, $entity = null, $n = null) {
+  function getFileInfo($fieldName, $val, $entity, $n) {
     if (!$val) {
       return NULL;
     }
@@ -535,21 +559,15 @@ abstract class wf_crm_webform_base {
       );
     }
     $file = wf_crm_apivalues('file', 'get', $val);
-	$entity_id = '';
-    if ($entity && ( strpos($fieldName, 'custom_') === 0 || strpos($fieldName, 'file_') === 0)) {
+    $entity_id = '';
+    if ($entity && $n && (strpos($fieldName, 'custom_') === 0 || strpos($fieldName, 'file_') === 0)) {
       $entity_id = $this->ent[$entity][$n]['id'];
-		  switch ( $entity ) {
-		  case 'relationship':
-			  $entity_id = $_GET['relationship1'];
-			  break;
-		  }
     }
-	
     if (!empty($file[$val])) {
       return array(
         'data_type' => 'File',
         'name' => CRM_Utils_File::cleanFileName($file[$val]['uri']),
-		'file_url'=> CRM_Utils_System::url('civicrm/file', "reset=1&id={$val}&eid={$entity_id}", true, true),
+        'file_url'=> CRM_Utils_System::url('civicrm/file', "reset=1&id={$val}&eid={$entity_id}", TRUE),
         'icon' => file_icon_url((object) array('filemime' => $file[$val]['mime_type'])),
       );
     }

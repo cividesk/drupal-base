@@ -62,7 +62,9 @@ class wf_crm_admin_component {
         ++$this->form['position']['weight']['#default_value'];
         array_unshift($this->form['#submit'], 'wf_crm_contact_clone');
         if (empty($this->form_state['input'])) {
-          drupal_set_message(t('Press the button below to clone this contact. A new CiviCRM contact will be added to the form with all the settings for !contact. All fields from within this fieldset will be cloned (be careful, that may include non-contact fields).', array('!contact' => wf_crm_contact_label($i, $this->data))), 'status', FALSE);
+          $types = wf_crm_get_contact_types();
+          $type = $types[0][$this->data['contact'][$i]['contact'][1]['contact_type']];
+          drupal_set_message(t('Press the "Clone Contact" button below and a new @type will be added to the form with all the settings for !contact. All fields within this fieldset will be cloned (be careful, that may include non-contact fields).', array('@type' => $type, '!contact' => wf_crm_contact_label($i, $this->data))), 'status', FALSE);
         }
       }
     }
@@ -357,13 +359,15 @@ class wf_crm_admin_component {
       $this->form['questions']['#description'] = t('Items down the side of the grid. Usually the keys represent item price, which will be multiplied with the amount column.') .
         '<br />' . t('Use non-numeric keys to use the price from the amount column as-is with no multiplication.');
     }
-    else {
+    elseif ($this->component['type'] === 'select') {
       $this->form['items']['options']['option_settings']['options_source']['#access'] = FALSE;
       $this->form['items']['#description'] = t('Enter item labels and prices. If you allow the user to select multiple items their amounts will be added together.');
     }
     foreach (array('items', 'options', 'questions') as $field) {
-      $this->form[$field]['options']['#key_type_toggle'] = t('Show Prices');
-      $this->form[$field]['options']['#key_type_toggled'] = TRUE;
+      if (!empty($this->form[$field]['options']['#key_type_toggle'])) {
+        $this->form[$field]['options']['#key_type_toggle'] = t('Show Prices');
+        $this->form[$field]['options']['#key_type_toggled'] = TRUE;
+      }
     }
     // CSS trick to add currency symbol to options element keys
     $symbol = wf_crm_aval(CRM_Core_Config::singleton(), 'defaultCurrencySymbol', '$');
@@ -449,8 +453,9 @@ class wf_crm_admin_component {
       // Empty message when no components have been added
       if (!empty($row[0]['colspan'])) {
         if (empty($node->webform['components']) && wf_crm_admin_access($node)) {
+          $form['components']['#attached']['js'][] = drupal_get_path('module', 'webform_civicrm') . '/js/webform_tab.js';
           $row[0]['data'] = t(
-            'Add a webform component below, or click the <a href="!url">CiviCRM tab</a> to add CRM fields.',
+            'Add a webform component below, or click the <a class="webform-civicrm-tab-link" href="!url">CiviCRM tab</a> to add CRM fields.',
             (array('!url' => url("node/{$node->nid}/civicrm")))
           );
         }

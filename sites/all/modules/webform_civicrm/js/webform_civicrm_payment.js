@@ -17,7 +17,7 @@ cj(function($) {
     var type = getPaymentProcessor();
     if (type && type != '0') {
       $('#billing-payment-block').load(setting.contributionCallback + '&type=' + type, function() {
-        $('#billing-payment-block').trigger('crmFormLoad');
+        $('#billing-payment-block').trigger('crmLoad').trigger('crmFormLoad');
         if (setting.billingSubmission) {
           $.each(setting.billingSubmission, function(key, val) {
             $('[name="' + key + '"]').val(val);
@@ -71,8 +71,13 @@ cj(function($) {
       '</tr>');
     }
     else {
-      $('td+td', $lineItem).html(CRM.formatMoney(amount));
-      $lineItem.data('amount', amount);
+      var taxPara = 1;
+      var tax = $lineItem.data('tax');
+      if (tax && tax !== '0') {
+        taxPara = 1 + (tax / 100);
+      }
+      $('td+td', $lineItem).html(CRM.formatMoney(amount * taxPara));
+      $lineItem.data('amount', amount * taxPara);
     }
     tally();
   }

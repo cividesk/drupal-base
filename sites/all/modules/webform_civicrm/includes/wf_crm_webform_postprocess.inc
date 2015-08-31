@@ -1058,6 +1058,10 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     }
     $existing = $this->findMemberships($cid);
     foreach (wf_crm_aval($this->data, "membership:$c:membership", array()) as $n => $params) {
+      $membershipStatus = "";
+      $membershipEndDate = "";
+      $is_active = FALSE;
+      
       if (empty($params['membership_type_id'])) {
         continue;
       }
@@ -1071,6 +1075,9 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
             $params['id'] = $mem['id'];
             // If we have an exact match, look no further
             if ($mem['membership_type_id'] == $params['membership_type_id']) {
+              $is_active = $mem['is_active'];
+              $membershipStatus = $mem['status'];
+              $membershipEndDate = $mem['end_date'];
               break;
             }
           }
@@ -1090,7 +1097,17 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
         // Pending payment status
         if ($this->contributionIsIncomplete && $this->getMembershipTypeField($params['membership_type_id'], 'minimum_fee')) {
           $params['is_pay_later'] = $this->contributionIsPayLater;
-          $params['status_id'] = 'Pending';
+          
+          if ($params['is_pay_later'] === TRUE) { // If user choose Pay later option.
+            if ($is_active == FALSE) {
+              $params['status_id'] = 'Pending';
+            } else {
+              $params['status_id'] = $membershipStatus;
+              $params['end_date'] = $membershipEndDate;
+            }
+          }else{
+            $params['status_id'] = 'Pending';
+          }
         }
       }
       // Override status
@@ -1102,10 +1119,27 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
       $params['skipStatusCal'] = !empty($params['status_id']);
 
       $result = wf_civicrm_api('membership', 'create', $params);
-      foreach ($this->line_items as &$item) {
-        if ($item['element'] == "civicrm_{$c}_membership_{$n}") {
-          $item['membership_id'] = $result['id'];
-          break;
+
+      if (!empty($result['id'])) {
+        // Issue #2516924 If existing membership create renewal activity
+        if (!empty($params['id'])) {
+          $membership = $result['values'][$result['id']];
+          $actParams = array(
+            'source_record_id' => $result['id'],
+            'activity_type_id' => 'Membership Renewal',
+            'target_id' => $cid,
+          );
+          $memType = wf_civicrm_api('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
+          $memStatus = wf_civicrm_api('MembershipStatus', 'getsingle', array('id' => $membership['status_id']));
+          $actParams['subject'] = ts("%1 - Status: %2", array(1 => $memType['name'], 2 => $memStatus['label']));
+          wf_civicrm_api('Activity', 'create', $actParams);
+        }
+
+        foreach ($this->line_items as &$item) {
+          if ($item['element'] == "civicrm_{$c}_membership_{$n}") {
+            $item['membership_id'] = $result['id'];
+            break;
+          }
         }
       }
     }
@@ -1149,6 +1183,10 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
         $params = $data['case'][1];
         // Set some defaults in create mode
         if (empty($this->ent['case'][$n]['id'])) {
+          if (empty($params['case_type_id'])) {
+            // Abort if no case type.
+            continue;
+          }
           // Automatic status... for lack of anything fancier just pick the first option ("Ongoing" on a standard install)
           if (empty($params['status_id'])) {
             $options = wf_crm_apivalues('case', 'getoptions', array('field' => 'status_id'));
@@ -1397,8 +1435,7 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
                 'financial_type_id' => $this->getMembershipTypeField($type, 'financial_type_id'),
                 'label' => $this->getMembershipTypeField($type, 'name'),
                 'element' => "civicrm_{$c}_membership_{$n}",
-                // Seems strange to not be civicrm_membership, but this is how it's done in core
-                'entity_table' => 'civicrm_contribution',
+                'entity_table' => 'civicrm_membership',
               );
             }
           }
@@ -1408,7 +1445,15 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     // Calculate totals
     $this->totalContribution = 0;
     foreach ($this->line_items as &$item) {
-      $this->totalContribution += $item['line_total'] = $item['unit_price'] * (int) $item['qty'];
+      // tax integration
+      if (!is_null($this->tax_rate)) {
+        $item['line_total'] = $item['unit_price'] * (int) $item['qty'];
+        $item['tax_amount'] = ($this->tax_rate / 100) * $item['line_total'];
+        $this->totalContribution += (1 + $this->tax_rate / 100) * $item['unit_price'] * (int) $item['qty'];
+      }
+      else {
+        $this->totalContribution += $item['line_total'] = $item['unit_price'] * (int) $item['qty'];
+      }
     }
     return $this->totalContribution;
   }
@@ -1607,6 +1652,10 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     $params = $this->contributionParams();
     $params['contribution_status_id'] = 'Pending';
     $params['is_pay_later'] = $this->contributionIsPayLater;
+    // IPN processors use this for matching and updating the contribution status
+    if (!$this->contributionIsPayLater) {
+      $params['invoice_id'] = $this->data['contribution'][1]['contribution'][1]['invoiceID'] = md5(uniqid(rand(), TRUE));
+    }
     $result = wf_civicrm_api('contribution', 'create', $params);
     $this->ent['contribution'][1]['id'] = $result['id'];
   }
@@ -1625,9 +1674,45 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     $params['contributionID'] = $params['id'] = $this->ent['contribution'][1]['id'];
     // Generate a fake qfKey in case payment processor redirects to contribution thank-you page
     $params['qfKey'] = $this->getQfKey();
+
+    $params['contactID'] = $params['contact_id'];
+    $params['currency'] = $params['currencyID'] = $this->contribution_page['currency'];
+    $params['total_amount'] = $this->totalContribution;
     // Some processors want this one way, some want it the other
     $params['amount'] = $params['total_amount'];
+
+    $params['financial_type_id'] = $this->contribution_page['financial_type_id'];
+
+    $params['source'] = $this->settings['new_contact_source'];
+    $params['item_name'] = t('Webform Payment: @title', array('@title' => $this->node->title));
+
+    // TODO: Someday payment processors will accept params like these.
+    // For now, we fake it with these placeholders and a hook to cajole the processor to respect them
+    // @see webform_civicrm_civicrm_alterPaymentProcessorParams
+    $params['webform_redirect_cancel'] = $this->getIpnRedirectUrl('cancel');
+    $params['webform_redirect_success'] = $this->getIpnRedirectUrl('success');
+
     $paymentProcessor->doTransferCheckout($params, 'contribute');
+  }
+
+  /**
+   * @param $type
+   * @return string
+   */
+  public function getIpnRedirectUrl($type) {
+    $url = trim($this->node->webform['redirect_url']);
+    if ($url == '<none>' || $type == 'cancel') {
+      $url = url('node/' . $this->node->nid, array('absolute' => TRUE));
+    }
+    elseif ($url == '<confirmation>') {
+      $url = url("node/{$this->node->nid}/done", array('query' => array('sid' => $this->submission->sid), 'absolute' => TRUE));
+    }
+    else {
+      $parsed = webform_replace_url_tokens($url, $this->node, $this->submission);
+      $parsed[1]['absolute'] = TRUE;
+      $url = url($parsed[0], $parsed[1]);
+    }
+    return $url;
   }
 
   /**
@@ -1641,8 +1726,17 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     $params['skipRecentView'] = $params['skipLineItem'] = 1;
     $params['contact_id'] = $this->ent['contact'][1]['id'];
     $params['total_amount'] = $this->totalContribution;
-    $params['source'] = $this->settings['new_contact_source'];
-    $params['description'] = t('Webform Payment') . ': ' . check_plain($this->node->title);
+
+    // tax integration
+    // TODO: needs review if this is changed in 4.6
+    if (!is_null($this->tax_rate)) {
+      $params['non_deductible_amount']  = $this->totalContribution;
+      $params['tax_amount'] = ($params['total_amount'] / ($this->tax_rate + 100)) * $this->tax_rate;
+    }
+    $params['description'] = t('Webform Payment: @title', array('@title' => $this->node->title));
+    if (!isset($params['source'])) {
+      $params['source'] = $this->settings['new_contact_source'];
+    }
 
     // pass all submitted values to payment processor
     foreach ($_POST as $key => $value) {
@@ -1686,6 +1780,12 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
         'honor_type_id' => $contribution['honor_type_id'],
       ));
     }
+
+    // tax integration
+    if (!is_null($this->tax_rate)) {
+      $contributionResult = CRM_Contribute_BAO_Contribution::getValues(array('id' => $id), CRM_Core_DAO::$_nullArray, CRM_Core_DAO::$_nullArray);
+    }
+
     // Save line-items
     foreach ($this->line_items as &$item) {
       if (empty($item['line_total'])) {
@@ -1694,7 +1794,39 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
       if (empty($item['entity_id'])) {
         $item['entity_id'] = $id;
       }
-      wf_civicrm_api('line_item', 'create', $item);
+      // tax integration
+      if (empty($item['contribution_id'])) {
+        $item['contribution_id'] = $id;
+      }   
+      // Membership
+      if (!empty($item['membership_id'])) {
+        $item['entity_id'] = $item['membership_id'];
+        $lineItemArray = wf_civicrm_api('LineItem', 'get', array(
+          'entity_table' => "civicrm_membership",
+          'entity_id' => $item['entity_id'],
+        ));
+        if($lineItemArray['count'] != 0){     
+          // We only require first membership (signup) entry to make this work.
+          $firstLineItem = array_shift($lineItemArray['values']);
+          
+          // Membership signup line item entry.
+          // Line Item record is already present for membership by this stage.
+          // Just need to upgrade contribution_id column in the record.
+          if(!isset($firstLineItem['contribution_id'])){
+            $item['id'] = $firstLineItem['id'];
+          }         
+        }
+      }
+      
+      $line_result = wf_civicrm_api('line_item', 'create', $item);
+      $item['id'] = $line_result['id'];
+  
+      if (!is_null($this->tax_rate)) {
+        $lineItemRecord = json_decode(json_encode($item), FALSE);
+        // Add financial_item and entity_financial_trxn
+        $result = CRM_Financial_BAO_FinancialItem::add($lineItemRecord, $contributionResult);
+        $result = CRM_Financial_BAO_FinancialItem::add($lineItemRecord, $contributionResult, TRUE);
+      }
       // Create participant/membership payment records
       if (isset($item['membership_id']) || isset($item['participant_id'])) {
         $type = isset($item['participant_id']) ? 'participant' : 'membership';
@@ -1706,6 +1838,11 @@ class wf_crm_webform_postprocess extends wf_crm_webform_base {
     }
     // Send receipt
     if (!empty($this->contribution_page['is_email_receipt'])) {
+      // tax integration
+      if (!is_null($this->tax_rate)) {
+        $template = CRM_Core_Smarty::singleton();
+        $template->assign('dataArray', array( "{$this->tax_rate}" => $this->tax_rate/100 ));
+      }
       wf_civicrm_api('contribution', 'sendconfirmation', array('id' => $id) + $this->contribution_page);
     }
   }

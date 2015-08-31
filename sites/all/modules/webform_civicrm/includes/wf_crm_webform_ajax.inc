@@ -108,11 +108,7 @@ class wf_crm_webform_ajax extends wf_crm_webform_base {
               $val = array('val' => $contact[$table][$n][$field]);
               // Retrieve file info
               if ($dataType === 'File') {
-                $entity = $ent;
-                if ($table == 'relationship'){
-                  $entity = 'relationship'; // temporary fix
-                }
-                $val = $this->getFileInfo($field, $val['val'], $entity, $n);
+                $val = $this->getFileInfo($field, $val['val'], $ent, $n);
               }
               // Explode multivalue strings
               elseif (is_string($val['val']) && strpos($val['val'], $sp) !== FALSE) {

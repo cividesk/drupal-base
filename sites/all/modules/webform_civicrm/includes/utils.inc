@@ -988,6 +988,10 @@ function wf_crm_get_fields($var = 'fields') {
         'value' => 0,
         'weight' => 9997,
       );
+      $fields['contribution_source'] = array(
+        'name' => t('Contribution Source'),
+        'type' => 'textfield',
+      );
     }
     if (isset($sets['participant'])) {
       $fields['participant_event_id'] = array(
@@ -1467,10 +1471,21 @@ function wf_civicrm_api($entity, $operation, $params) {
     'version' => 3
   );
   $result = civicrm_api($entity, $operation, $params);
-  if (!empty($result['is_error'])) {
+  // I guess we want silent errors for getoptions b/c we check it for failure separately
+  if (!empty($result['is_error']) && $operation != 'getoptions') {
     $bt = debug_backtrace();
-    $file = explode('/', $bt[0]['file']);
-    watchdog('webform_civicrm', 'The CiviCRM "%function" API function returned the error: "%msg" when called by line !line of !file with the following parameters: "!params"', array('%function' => $entity . ' ' . $operation, '%msg' => $result['error_message'], '!line' => $bt[0]['line'], '!file' => array_pop($file), '!params' => print_r($params, TRUE)), WATCHDOG_ERROR);
+    $n = $bt[0]['function'] == 'wf_civicrm_api' ? 1 : 0;
+    $file = explode('/', $bt[$n]['file']);
+    watchdog('webform_civicrm', 'The CiviCRM "%function" API returned the error: "%msg" when called by function "!fn" on line !line of !file with parameters: "!params"',
+      array(
+        '%function' => $entity . ' ' . $operation,
+        '%msg' => $result['error_message'],
+        '!fn' => $bt[$n+1]['function'],
+        '!line' => $bt[$n]['line'],
+        '!file' => array_pop($file),
+        '!params' => print_r($params, TRUE),
+      ),
+      WATCHDOG_ERROR);
   }
   return $result;
 }

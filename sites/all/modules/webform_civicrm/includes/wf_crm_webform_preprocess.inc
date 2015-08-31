@@ -550,11 +550,11 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
             }
             // Contact image & custom file fields
             if ($dt == 'File') {
-              	$entity = $ent;
-				if ($table == 'relationship'){
-					$entity = 'relationship'; // temporary fix
-				}            
-				$fileInfo = $this->getFileInfo($name, $val, $entity, $n);
+                $entity = $ent;
+                if ($table == 'relationship') {
+                    $entity = 'relationship'; // temporary fix
+                }
+                $fileInfo = $this->getFileInfo($name, $val, $entity, $n);
 			  
               if ($fileInfo && in_array($element['#type'], array('file', 'managed_file'))) {
                 $fileInfo = json_encode($fileInfo);

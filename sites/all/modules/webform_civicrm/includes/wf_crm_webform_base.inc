@@ -568,7 +568,12 @@ abstract class wf_crm_webform_base {
     $file = wf_crm_apivalues('file', 'get', $val);
     $entity_id = '';
     if ($entity && $n && (strpos($fieldName, 'custom_') === 0 || strpos($fieldName, 'file_') === 0)) {
-      $entity_id = $this->ent[$entity][$n]['id'];
+        $entity_id = $this->ent[$entity][$n]['id'];
+            switch ( $entity ) {
+                case 'relationship':
+                $entity_id = $_GET['relationship1'];
+                break;
+            }
     }
     if (!empty($file[$val])) {
       return array(

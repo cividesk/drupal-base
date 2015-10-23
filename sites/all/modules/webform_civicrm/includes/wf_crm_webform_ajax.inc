@@ -8,7 +8,7 @@
 module_load_include('inc', 'webform_civicrm', 'includes/wf_crm_webform_base');
 
 class wf_crm_webform_ajax extends wf_crm_webform_base {
-  
+
   function __construct() {
     civicrm_initialize();
   }
@@ -77,7 +77,7 @@ class wf_crm_webform_ajax extends wf_crm_webform_base {
       if ($_GET['load'] == 'name') {
         if ($_GET['cid'][0] === '-') {
           // HTML hack to get prompt to show up different than search results
-          $data = '<em><i>' . $component['extra']['none_prompt'] . '</i></em>';
+          $data = '<em><i>' . filter_xss($component['extra']['none_prompt']) . '</i></em>';
         }
         else {
           $data = $name;
@@ -108,13 +108,8 @@ class wf_crm_webform_ajax extends wf_crm_webform_base {
               $val = array('val' => $contact[$table][$n][$field]);
               // Retrieve file info
               if ($dataType === 'File') {
-                $entity = $ent;
-                if ($table == 'relationship') {
-                    $entity = 'relationship'; // temporary fix
-                }
-                $val = $this->getFileInfo($field, $val['val'], $entity, $n);
-               }
-              
+                $val = $this->getFileInfo($field, $val['val'], $ent, $n);
+              }
               // Explode multivalue strings
               elseif (is_string($val['val']) && strpos($val['val'], $sp) !== FALSE) {
                 $val['val'] = wf_crm_explode_multivalue_str($val['val']);

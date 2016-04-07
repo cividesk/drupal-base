@@ -99,35 +99,6 @@ function _user_import_send_email($account, $password, $profile, $subject, $body,
   return;
 }
 
-/**
- * Implementation of hook_mail().
- */
-function user_import_mail($key, &$message, $params) {
-
-  switch ($key) {
-    case 'welcome':
-      $message['subject'] = (empty($params['subject'])) ? _user_mail_text('register_admin_created_subject', $message['language'], $params) : strtr($params['subject'], $params);
-      $body               = (empty($params['body'])) ? _user_mail_text('register_admin_created_body', $message['language'], $params) : strtr($params['body'], $params);
-
-      if ($params['email_format'] == 1) {
-        $message['headers']['Content-Type'] = 'text/html; charset=UTF-8';
-
-        $body_head = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-	            <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
-	            <head>
-	            <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />';
-
-        if (!empty($params['css'])) $body_head .= '<style type="text/css">' . check_plain($params['css']) . '</style>';
-        $message['body'][] = $body_head . '</head><body>' . $body . '</body></html>';
-      }
-      else {
-        $message['body'][] = $body;
-      }
-
-      break;
-  }
-}
-
 function _user_import_edit_settings_fields(&$form, $import, $collapsed) {
 
   $form['optional'] = array(

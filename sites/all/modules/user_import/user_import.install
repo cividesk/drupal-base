@@ -146,6 +146,34 @@ function user_import_schema() {
   return $schema;
 }
 
+/**
+ * Implementation of hook_install().
+ */
+function user_import_install() {
+
+  // Add a new mail system for HTML emails.
+  $mail_system = variable_get('mail_system', array('default-system' => 'DefaultMailSystem'));
+  $mail_system['user_import'] = 'UserImportMailSystem';
+  variable_set('mail_system', $mail_system);
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function user_import_uninstall() {
+  variable_del('user_import_settings');
+  variable_del('user_import_max');
+  variable_del('user_import_line_max');
+  variable_del('user_export_checked_usernames');
+  variable_del('user_import_profile_date_format');
+
+  //
+  $mail_system = variable_get('mail_system', array('default-system' => 'DefaultMailSystem'));
+  unset($mail_system['user_import']);
+  variable_set('mail_system', $mail_system);
+}
+
 function user_import_update_1() {
   $ret = array();
   _system_update_utf8(array('user_import', 'user_import_errors'));
@@ -249,15 +277,13 @@ function user_import_update_7200(&$sandbox) {
   db_add_field('user_import', 'auto_import_directory', $field);
 }
 
-
 /**
- * Implementation of hook_uninstall().
+ * Add a new mail system for HTML emails.
  */
-function user_import_uninstall() {
-  variable_del('user_import_settings');
-  variable_del('user_import_max');
-  variable_del('user_import_line_max');
-  variable_del('user_export_checked_usernames');
-  variable_del('user_import_profile_date_format');
+function user_import_update_7201() {
+  $ret = array();
+  $mail_system = variable_get('mail_system', array('default-system' => 'DefaultMailSystem'));
+  $mail_system['user_import'] = 'UserImportMailSystem';
+  variable_set('mail_system', $mail_system);
+  return $ret;
 }
-

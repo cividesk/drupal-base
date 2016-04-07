@@ -11,9 +11,9 @@ files[] = user_import.test
 
 
 
-; Information added by Drupal.org packaging script on 2015-04-01
-version = "7.x-2.3"
+; Information added by Drupal.org packaging script on 2016-03-06
+version = "7.x-3.2"
 core = "7.x"
 project = "user_import"
-datestamp = "1427908388"
+datestamp = "1457261641"
 

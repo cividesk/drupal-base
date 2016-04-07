@@ -84,6 +84,37 @@ function field_user_import_default_field_processor($user_fields, $field_name, $v
   return $field;
 }
 
+function field_user_import_taxonomy_field_processor($user_fields, $field_name, $values) {
+
+  $field = $user_fields->$field_name;
+
+  for ($i = 0; $i < count($values); $i++) {
+    if (empty($values[$i])) {
+      continue; // Do not save empty fields
+    }
+
+    // Get taxonomy term ID before saving if term already exists
+    $field_info = field_info_field($field_name);
+    $vocabulary = $field_info['settings']['allowed_values'][0]['vocabulary'];
+    $tid = taxonomy_get_term_by_name($values[$i], $vocabulary);
+
+    if (empty($tid)) {
+      // Create a new taxonomy term
+      $field[LANGUAGE_NONE][$i]['tid'] = 'autocreate';
+      $field[LANGUAGE_NONE][$i]['vid'] = taxonomy_vocabulary_machine_name_load($vocabulary)->vid;
+      $field[LANGUAGE_NONE][$i]['name'] = $values[$i];
+      $field[LANGUAGE_NONE][$i]['description'] = '';
+      $field[LANGUAGE_NONE][$i]['format'] = 'plain_text';
+    }
+    else {
+      $field[LANGUAGE_NONE][$i]['tid'] = array_shift($tid)->tid;
+    }
+  }
+
+  return $field;
+}
+
+
 function field_user_import_supported_fields($output = 'all') {
   static $supported = array();
 
@@ -142,7 +173,7 @@ function field_user_import_supported_fields($output = 'all') {
 
     $supported['taxonomy_term_reference'] = array(
       'validate' => 'field_user_import_default_field_validator',
-      'save'     => 'field_user_import_default_field_processor',
+      'save'     => 'field_user_import_taxonomy_field_processor',
     );
 
     /** Unsupported for the moment **/

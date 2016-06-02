@@ -1,0 +1,28 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the page_theme_debugger module.
+ */
+
+
+/**
+ * Implements hook_install().
+ */
+function page_theme_debugger_install() {
+
+  db_update('system')
+    ->fields(array('weight' => 1000))
+    ->condition('name', 'page_theme_debugger')
+    ->condition('type', 'module')
+    ->execute();
+}
+
+
+/**
+ * Implements hook_uninstall().
+ */
+function page_theme_debugger_uninstall() {
+
+  variable_del('page_theme_debugger_blacklist');
+}

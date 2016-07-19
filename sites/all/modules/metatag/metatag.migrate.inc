@@ -1,24 +1,27 @@
 <?php
-
 /**
  * @file
  * Metatag support for Migrate.
  */
 
+if (!class_exists('MigrateDestinationHandler')) {
+  return;
+}
+
 /**
  * Basic usage of the Migrate integration.
  *
  * This example assumes the custom module's name is "example_migrate".
- * 
+ *
  * example_migrate.inc:
- * 
+ *
  * class MetatagTestMigration extends DynamicMigration {
- * 
+ *
  *   public function __construct() {
  *     parent::__construct();
- * 
+ *
  *     $this->description = t('Migrate test.');
- * 
+ *
  *     $this->map = new MigrateSQLMap(
  *       $this->machineName,
  *       array(
@@ -31,22 +34,22 @@
  *       ),
  *       MigrateDestinationNode::getKeySchema()
  *     );
- * 
+ *
  *     $this->source = new MigrateSourceCSV(
  *       drupal_get_path('module', 'example_migrate') . '/sample.csv',
  *       array(),
  *       array('header_rows' => TRUE)
  *     );
- * 
+ *
  *     $this->destination = new MigrateDestinationNode('article');
- * 
+ *
  *     $this->addFieldMapping('metatag_description', 'description');
  *     $this->addFieldMapping('metatag_keywords', 'keywords');
  *   }
  * }
- * 
+ *
  * example_migrate.migrate.inc:
- * 
+ *
  * /**
  *  * Implements hook_migrate_api().
  *  * /
@@ -57,7 +60,7 @@
  *       'MetatagTest' => array('class_name' => 'MetatagTestMigration'),
  *     ),
  *   );
- * 
+ *
  *   return $api;
  * }
  */
@@ -81,13 +84,13 @@ function metatag_migrate_api() {
  */
 class MigrateMetatagHandler extends MigrateDestinationHandler {
 
+  /**
+   * Identify a list of supported entity types.
+   */
   public function __construct() {
-    $entity_types = array();
-    foreach (entity_get_info() as $entity_type => $entity_info) {
-      if (isset($entity_info['metatags']) && $entity_info['metatags']) {
-        $entity_types[] = $entity_type;
-      }
-    }
+    $entity_types = metatag_entity_supports_metatags();
+    $entity_types = array_filter($entity_types);
+    $entity_types = array_keys($entity_types);
 
     $this->registerTypes($entity_types);
   }
@@ -116,7 +119,8 @@ class MigrateMetatagHandler extends MigrateDestinationHandler {
     foreach ($elements['tags'] as $value) {
       $metatag_field = 'metatag_' . $value['name'];
       if (isset($entity->$metatag_field)) {
-        $entity->metatags[$value['name']]['value'] = $entity->$metatag_field;
+        $language = isset($entity->language) ? $entity->language : LANGUAGE_NONE;
+        $entity->metatags[$language][$value['name']]['value'] = $entity->$metatag_field;
         unset($entity->$metatag_field);
       }
     }

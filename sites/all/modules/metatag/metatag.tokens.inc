@@ -17,28 +17,50 @@ function metatag_token_info() {
 
   $metatag_info = metatag_get_info();
 
-  foreach($metatag_info['tags'] as $value) {
+  foreach ($metatag_info['tags'] as $value) {
+    if (isset($value['group'], $metatag_info['groups'][$value['group']], $metatag_info['groups'][$value['group']]['label'])) {
+      $label = t($metatag_info['groups'][$value['group']]['label']) . ': ' . t($value['label']);
+    }
+    else {
+      $label = t('Basic tags') . ': ' . t($value['label']);
+    }
     $info['tokens']['metatag'][$value['name']] = array(
-      'name' => $value['label'],
-      'description' => $value['description']
+      'name' => $label,
+      'description' => t($value['description']),
     );
   }
 
   if (module_exists('taxonomy')) {
     $info['tokens']['term']['metatag'] = array(
-      'name' => t('Metatag.'),
-      'description' => t('Metatag.'),
-      'type' => 'metatag'
+      'name' => t('Meta tags'),
+      'description' => t('Meta tags for this taxonomy term.'),
+      'type' => 'metatag',
     );
   }
 
   if (module_exists('node')) {
     $info['tokens']['node']['metatag'] = array(
-      'name' => t('Metatag.'),
-      'description' => t('Metatag.'),
-      'type' => 'metatag'
+      'name' => t('Meta tags'),
+      'description' => t('Meta tags for this node.'),
+      'type' => 'metatag',
     );
   }
+
+  if (module_exists('user')) {
+    $info['tokens']['user']['metatag'] = array(
+      'name' => t('Meta tags'),
+      'description' => t('Meta tags for this user.'),
+      'type' => 'metatag',
+    );
+  }
+
+  // A custom pager.
+  $pager = variable_get('metatag_pager_string', 'Page PAGER | ');
+  $page = str_replace('PAGER', 12, $pager);
+  $info['tokens']['current-page']['pager'] = array(
+    'name' => t('Custom pager'),
+    'description' => t('A custom pager (from the Metatag module). Currently set to "@pager" which would be output as e.g. "@page".', array('@pager' => $pager, '@page' => $page)),
+  );
 
   return $info;
 }
@@ -81,6 +103,30 @@ function metatag_tokens($type, $tokens, array $data = array(), array $options = 
     }
   }
 
+  // User tokens.
+  if ($type == 'user' && !empty($data['user'])) {
+    $account = $data['user'];
+
+    if ($metatag_tokens = token_find_with_prefix($tokens, 'metatag')) {
+      $result = metatag_token_generate_array($account, 'user', 'user');
+      $replacements += token_generate('metatag', $metatag_tokens, array('metatag' => $result), $options);
+    }
+  }
+
+  // Custom pager.
+  if ($type == 'current-page') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'pager':
+          $pager = metatag_get_current_pager();
+          if (!empty($pager)) {
+            $replacements[$original] = $pager;
+          }
+          break;
+      }
+    }
+  }
+
   return $replacements;
 }
 
@@ -91,7 +137,7 @@ function metatag_token_generate_array($entity, $entity_type, $bundle) {
   if (metatag_entity_supports_metatags($entity_type, $bundle)) {
     $token_type = token_get_entity_mapping('entity', $entity_type);
 
-    $instance = "{$entity_type}:{$bundle}";
+    $instance = metatag_get_entity_metatags_instance($entity, $entity_type, $bundle);
     $options = array();
     $options['token data'][$token_type] = $entity;
     $options['entity'] = $entity;
@@ -104,6 +150,8 @@ function metatag_token_generate_array($entity, $entity_type, $bundle) {
       }
     }
     $metatags += metatag_config_load_with_defaults($instance);
+    // Process it for entity metatag replacement to avoid infinite recursion.
+    $metatags = _metatag_token_process_metatag($metatags, $token_type);
 
     $result = array();
     foreach ($metatags as $metatag => $data) {
@@ -115,4 +163,88 @@ function metatag_token_generate_array($entity, $entity_type, $bundle) {
   }
 
   return NULL;
+}
+
+/**
+ * Loop through metatags to avoid recursion on entity tokens. It will replace
+ * entity metatag token to its actual entity metatag field value.
+ *
+ * @param array $metatags
+ *   An array of entity metatag tokens.
+ * @param string $token_type
+ *   The entity token type, such as 'node' or 'term'.
+ *
+ * @return array
+ *   Return metatags array with entity metatag tokens replaced.
+ */
+function _metatag_token_process_metatag($metatags, $token_type) {
+  foreach ($metatags as $metatag => $data) {
+    // Skip values that are not strings.
+    if (!is_string($data['value'])) {
+      continue;
+    }
+
+    // Explode all metatag token in field.
+    $data_tokens = token_scan($data['value']);
+    if (isset($data_tokens[$token_type])) {
+      foreach ($data_tokens[$token_type] as $key => $value) {
+        $metatag_parts = explode(':', $key);
+        // Check entity metatag token. Like [<entity_token_type>:metatag:<xyz>].
+        if ($metatag_parts[0] == 'metatag') {
+          $entity_field = implode(':', array_slice($metatag_parts, 1));
+          // If a value is not set here it will trigger an infinite loop.
+          $metatags[$metatag]['value'] = '';
+
+          // If the meta tag was defined then try parsing it.
+          if (!empty($metatags[$entity_field]['value'])) {
+            // Entity metatag field may contain other entity metatag token
+            // that need to be replaced too.
+            $replaced_value = metatag_token_entitymetatagtoken_replace($metatags, $metatags[$entity_field]['value'], $token_type);
+            $metatags[$metatag]['value'] = str_replace($value, $replaced_value, $metatags[$metatag]['value']);
+          }
+        }
+      }
+    }
+  }
+
+  return $metatags;
+}
+
+/**
+ * Replace entity metatag token with actual entity metatag field value.
+ *
+ * @param array $metatags
+ *   An array entity metatag tokens.
+ * @param string $token
+ *   A token to be replaced.
+ * @param string $token_type
+ *   The entity token type, such as 'node' or 'term'.
+ * @param array $search_tokens
+ *   An array of tokens to search for.
+ * @param array $replace_tokens
+ *   An array of tokens to be replaced.
+ *
+ * @return string
+ *   The replaced value of $token.
+ */
+function metatag_token_entitymetatagtoken_replace($metatags, $token, $token_type, $search_tokens = array(), $replace_tokens = array()) {
+  $data_tokens = token_scan($token);
+  // Check field has tokens.
+  if (isset($data_tokens[$token_type])) {
+    // Go through each token in field and find entity metatag tokens.
+    foreach ($data_tokens[$token_type] as $key => $value) {
+      $metatag_parts = explode(':', $key);
+      if ($metatag_parts[0] == 'metatag' && !in_array($value, $search_tokens)) {
+        // Entity metatag field value.
+        $entity_field = implode(':', array_slice($metatag_parts, 1));
+        $replaced_value = metatag_token_entitymetatagtoken_replace($metatags, $metatags[$entity_field]['value'], $token_type, $replace_tokens, $search_tokens);
+        $replace_tokens[] = $replaced_value;
+        $search_tokens[] = $value;
+      }
+    }
+    return str_replace($search_tokens, $replace_tokens, $token);
+  }
+  else {
+    return $token;
+  }
 }

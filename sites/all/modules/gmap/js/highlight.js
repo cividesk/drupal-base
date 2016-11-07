@@ -47,7 +47,7 @@ Drupal.gmap.factory.highlight = function (options) {
      * repond to shapes events.
      */
     return new google.maps.Circle(options);
-}
+};
 
 Drupal.gmap.addHandler('gmap', function (elem) {
     var obj = this;
@@ -60,12 +60,12 @@ Drupal.gmap.addHandler('gmap', function (elem) {
      */
     var highlightOverlay = function () {
         this.highlights = []; // this will hold all of the highlights that we created, in case we need to recalculate/deactivate them
-    }
+    };
     highlightOverlay.prototype = new google.maps.OverlayView();
 
     // overlay method for when you .setMap( some map );
     highlightOverlay.prototype.onAdd = function (map) {
-    }
+    };
     // overlay method for when you .setMap(null);
     highlightOverlay.prototype.onRemove = function () {
         // we have to recalculate radii for all shapes
@@ -75,7 +75,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
                 self.calculateHighlight(highlight); //recalculate all of those radii
             }
         });
-    }
+    };
 
     // overlay method executed on any map change methods (zoom/move)
     highlightOverlay.prototype.draw = function () {
@@ -86,7 +86,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
                 self.deactivateHighlight(highlight); //recalculate all of those radii
             }
         });
-    }
+    };
 
     highlightOverlay.prototype.configHighlight = function (highlight) {
         if (!highlight.opts) {
@@ -128,7 +128,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
 
         // add this highlight to our list, so that we can draw it in the draw method (which will also redraw it after map change events.
         this.highlights.push(highlight);
-    }
+    };
     // determine how big the circle should be in meters (as we were likely passed pixels).  This radius changes on zoom and move events.
     highlightOverlay.prototype.calculateHighlight = function (highlight) { // this nees a better name
 
@@ -151,25 +151,25 @@ Drupal.gmap.addHandler('gmap', function (elem) {
         else {
             highlight.shape = Drupal.gmap.factory.highlight(jQuery.extend({}, highlight.opts, {radius: highlight.opts.radiusInMeters})); // only pass radiusinmeters to g.m.circle.  We keep the pixel radius in case we need to calculate again after a zoom
         }
-    }
+    };
     highlightOverlay.prototype.activateHighlight = function (highlight) {
         if (!highlight.shape) {
             this.configHighlight(highlight);
             this.calculateHighlight(highlight);
         }
         highlight.shape.setMap(this.map);
-    }
+    };
     highlightOverlay.prototype.deactivateHighlight = function (highlight) {
         if (highlight.shape) {
             highlight.shape.setMap(null);
         }
-    }
+    };
     highlightOverlay.prototype.updateHighlight = function (highlight) {
         if (highlight.shape) {
             this.configHighlight(highlight);
             this.calculateHighlight(highlight);
         }
-    }
+    };
 
     // prepare a single highlight overlay to be used for all highlights
     obj.bind('init', function (highlight) {
@@ -195,7 +195,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
 
         // If the highlight arg option is used in views highlight the marker.
         if (!marker.highlight) {
-            marker.highlight = {}
+            marker.highlight = {};
         }
         if (!marker.highlight.color && obj.vars.styles.highlight_color) {
             marker.highlight.color = '#' + obj.vars.styles.highlight_color;
@@ -211,10 +211,9 @@ Drupal.gmap.addHandler('gmap', function (elem) {
     });
     obj.bind('markerUnHighlightActive', function () {
         var marker;
-        while (marker = highlightedMarkers.pop()) {
+        while (!!(marker = highlightedMarkers.pop())) {
             obj.change('highlightRemove', -1, marker);
         }
-        ;
     });
 
     /**

@@ -6,7 +6,7 @@
  */
 
 /*global Drupal, GDownloadUrl, GXml */
-
+/*jshint -W083 */
 Drupal.gmap.addHandler('gmap', function (elem) {
     var obj = this;
     var feed, i, j, marker, tmp;

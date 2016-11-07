@@ -56,11 +56,6 @@ class GmapViewsExtendedTestCase extends DrupalWebTestCase {
       // change error (Notice) to debug message
       return $this->assert('debug', $message, 'Debug', $caller);
     }
-    // @todo create follow-up
-    if ($message == 'implode(): Invalid arguments passed') {
-      // change error (Notice) to debug message
-      return $this->assert('debug', $message, 'Debug', $caller);
-    }
 
     return parent::error($message, $group, $caller);
   }

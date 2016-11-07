@@ -41,6 +41,17 @@ sequence = "my1.png,my2.png"  ; The list of image files to use. Specifying multi
 <p>(TODO)</p>
 <p>GMap uses a custom event system to pass data and events around.</p>
 <h3></h3>
+<p>To use this handlers create a js file and use insert this example code. This example prints a alert, everytime a user clicks on a marker.</p>
+<pre>
+  // Add a gmap handler
+  Drupal.gmap.addHandler('gmap', function(elem) {
+    var obj = this;
+    obj.bind('zoom', function() {
+      var zoom = obj.vars.zoom;
+      alert('user zoomed');
+    });
+  });
+</pre>
 
 <h2>Extending GMap Views</h2>
 <p>(TODO)</p>

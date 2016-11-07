@@ -2,29 +2,51 @@
 
 /**
  * @file
- * GMap Location module is a module to add some gmap funcationality based on location.modules information.
+ * GMap Location module is a module to add some gmap
+ * funcationality based on location.modules information.
  *
- * The main functions are to provide a map showing all of the nodes or users that have location information on a map.
+ * The main functions are to provide a map showing all of the
+ * nodes or users that have location information on a map.
  */
 
 /**
- * Implementation of hook_theme().
+ * Implements hook_theme().
  */
 function gmap_location_theme() {
   return array(
-    'gmap_location_user_page' => array('variables' => array('header' => '', 'map' => '', 'footer' => '')),
-    'gmap_location_node_page' => array('variables' => array('count' => 0, 'header' => '', 'map' => '', 'footer' => '')),
+    'gmap_location_user_page' => array(
+      'variables' => array(
+        'header' => '',
+        'map' => '',
+        'footer' => '',
+      ),
+    ),
+    'gmap_location_node_page' => array(
+      'variables' => array(
+        'count' => 0,
+        'header' => '',
+        'map' => '',
+        'footer' => '',
+      ),
+    ),
     // @@@ Test this one thoroughly.
     'gmap_location_infowindow_node' => array(
       'pattern' => 'gmap_location_infowindow_node__',
-      'variables' => array('node' => NULL, 'opt' => NULL),
+      'variables' => array(
+        'node' => NULL,
+        'opt' => NULL,
+      ),
     ),
-    'gmap_location_infowindow_user' => array('variables' => array('account' => NULL)),
+    'gmap_location_infowindow_user' => array(
+      'variables' => array(
+        'account' => NULL,
+      ),
+    ),
   );
 }
 
 /**
- * Implementation of hook_permission().
+ * Implements hook_permission().
  */
 function gmap_location_permission() {
   return array(
@@ -68,7 +90,7 @@ function _gmap_location_node_map_defaults() {
 }
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function gmap_location_menu() {
   $items['map/user'] = array(
@@ -153,8 +175,8 @@ function gmap_location_user_page() {
       $marker = $markertypes[$row->role];
     }
 
-    // Users with the 'view user location details' permission are allowed to see who
-    // each marker represents.
+    // Users with the 'view user location details'
+    // permission are allowed to see who each marker represents.
     if (user_access('view user location details')) {
       if ($mode == 1) {
         $newmarker['rmt'] = $row->uid;
@@ -175,26 +197,27 @@ function gmap_location_user_page() {
     $map['markers'][] = $newmarker;
   }
 
-// @@@ Move to gmap_addons.
+  // @@@ Move to gmap_addons.
   /*
-    if (user_access('view user location details') && function_exists('buddylist_get_buddies') && count($locationbyuser)>0) {
-      //create lines for buddies
-      if (!isset($thismap['shapes'])) {
-        $thismap['shapes']=array();
-      }
-      ksort($locationbyuser);
-      foreach ($locationbyuser as $key => $value) {
-        $buddies= buddylist_get_buddies($key);
-        foreach ($buddies as $bkey => $bvalue) {
-          if ($bkey > $key && isset($locationbyuser[$bkey])) {
-            $thismap['shape'][] = array(
-              'points' => array($locationbyuser[$key], $locationbyuser[$bkey]),
-              'type' => 'line'
-            );
-          }
-        }
-      }
-    }
+  if (user_access('view user location details')
+  && function_exists('buddylist_get_buddies') && count($locationbyuser)>0) {
+  // Create lines for buddies.
+  if (!isset($thismap['shapes'])) {
+  $thismap['shapes']=array();
+  }
+  ksort($locationbyuser);
+  foreach ($locationbyuser as $key => $value) {
+  $buddies= buddylist_get_buddies($key);
+  foreach ($buddies as $bkey => $bvalue) {
+  if ($bkey > $key && isset($locationbyuser[$bkey])) {
+  $thismap['shape'][] = array(
+  'points' => array($locationbyuser[$key], $locationbyuser[$bkey]),
+  'type' => 'line'
+  );
+  }
+  }
+  }
+  }
   */
   $element = array(
     '#type' => 'gmap',
@@ -204,7 +227,7 @@ function gmap_location_user_page() {
   return theme('gmap_location_user_page', array(
       'header' => $usermap['header'],
       'map' => drupal_render($element),
-      'footer' => $usermap['footer']
+      'footer' => $usermap['footer'],
     )
   );
 }
@@ -240,9 +263,11 @@ function theme_gmap_location_user_page(&$vars) {
 }
 
 /**
- * Draws a page with a google map with the node on it, or if no node is set all of the nodes on it.
+ * Draws a page with a google map with the node on it.
  *
- * @param $nid
+ * Or if no node is set all of the nodes on it.
+ *
+ * @param int $nid
  *   The node nid to draw on the map.
  *   If this is not set, or is null then all of the nodes will be drawn.
  */
@@ -290,11 +315,11 @@ function gmap_location_node_page($nid = NULL) {
     $count++;
     $newmarker = array();
     if ($mode == 1) {
-      // Popup
+      // Popup.
       $newmarker['rmt'] = $row->nid . '/0';
     }
     elseif ($mode == 2) {
-      // Link
+      // Link.
       $newmarker['link'] = url('node/' . $row->nid);
     }
 
@@ -308,7 +333,7 @@ function gmap_location_node_page($nid = NULL) {
     $map['markers'][] = $newmarker;
   }
 
-  // Special stuff for single marker
+  // Special stuff for single marker.
   if ($count == 1) {
     // Center map on only marker.
     $map['latitude'] = $map['markers'][0]['latitude'];
@@ -323,11 +348,12 @@ function gmap_location_node_page($nid = NULL) {
   // Special cases for single node view.
   if (is_numeric($nid) && $node = node_load($nid)) {
 
-    // Organic groups. Group nodes are displayed as a map of the users who belong to the group.
+    // Organic groups. Group nodes are displayed as
+    // a map of the users who belong to the group.
     if (user_access('view user location details') && function_exists('og_is_group_type') && og_is_group_type($node->type)) {
       $rolemarkers = variable_get('gmap_role_markers', array());
-
-      $map['markers'] = array(); // Reset markers.
+      // Reset markers.
+      $map['markers'] = array();
 
       $result = db_query("
         SELECT
@@ -347,9 +373,11 @@ function gmap_location_node_page($nid = NULL) {
         AND
           (l.latitude != 0 OR l.longitude != 0)
         GROUP BY
-          o.uid", array(
-        ':nid' => $nid
-      ));
+          o.uid",
+        array(
+          ':nid' => $nid,
+        )
+      );
 
       foreach ($result as $row) {
         $newmarker = array();
@@ -374,7 +402,7 @@ function gmap_location_node_page($nid = NULL) {
       'count' => $count,
       'header' => $nodemap['header'],
       'map' => drupal_render($element),
-      'footer' => $nodemap['footer']
+      'footer' => $nodemap['footer'],
     )
   );
 }
@@ -387,13 +415,13 @@ function gmap_location_node_point($node, $opt) {
   // @@@ Make sure $node->type is an ok thing to do here..
   echo theme(array(
     "gmap_location_infowindow_node__$node->type",
-    'gmap_location_infowindow_node'
+    'gmap_location_infowindow_node',
   ), array(
     'node' => $node,
-    'opt' => $opt
+    'opt' => $opt,
   ));
   // exit();
-  return;
+  return NULL;
 }
 
 /**
@@ -417,8 +445,7 @@ function theme_gmap_location_node_page(&$vars) {
 }
 
 /**
- * Admin Settings Page
- *
+ * Admin Settings Page.
  */
 function gmap_location_admin_settings() {
   $form['user'] = array(
@@ -426,7 +453,7 @@ function gmap_location_admin_settings() {
     '#title' => t('User settings'),
   );
 
-  // gmap_user_map defaults
+  // gmap_user_map defaults.
   $temp = variable_get('gmap_user_map', _gmap_location_user_map_defaults());
 
   $form['user']['gmap_user_map'] = array(
@@ -440,7 +467,20 @@ function gmap_location_admin_settings() {
     '#default_value' => $temp['macro'],
     '#size' => 50,
     '#maxlength' => 500,
-    '#description' => t('The GMap macro to be used when displaying user information. See the <a href="http://drupal.org/documentation/modules/gmap/macros">documentation on GMap macros</a>.'),
+    '#description' => t(
+      'The GMap macro used when the user information is displayed. See the !macros_link.',
+      array(
+        '!macros_link' => l(
+          'documentation on GMap macros',
+          'http://drupal.org/documentation/modules/gmap/macros',
+          array(
+            'attributes' => array(
+              'target' => '_blank',
+            ),
+          )
+        ),
+      )
+    ),
   );
   $form['user']['gmap_user_map']['header'] = array(
     '#type' => 'textarea',
@@ -466,8 +506,7 @@ function gmap_location_admin_settings() {
     '#default_value' => $temp['markermode'],
   );
 
-
-  // Option to use a different marker for each role
+  // Option to use a different marker for each role.
   $form['user']['gmap_role_markers'] = array(
     '#type' => 'fieldset',
     '#title' => t('Markers per role'),
@@ -475,13 +514,13 @@ function gmap_location_admin_settings() {
     '#tree' => TRUE,
   );
 
-  // Retrieve and sort list of roles, sans anonymous user
+  // Retrieve and sort list of roles, sans anonymous user.
   $roles = user_roles(TRUE);
-  //asort($roles);
+  // asort($roles);
 
   $defaults = variable_get('gmap_role_markers', array());
 
-  // Create a selection box per role
+  // Create a selection box per role.
   foreach ($roles as $rid => $role) {
     $form['user']['gmap_role_markers'][$rid] = array(
       '#type' => 'gmap_markerchooser',
@@ -495,7 +534,7 @@ function gmap_location_admin_settings() {
     '#title' => t('Node settings'),
   );
 
-  // gmap_node_map defaults
+  // gmap_node_map defaults.
   $temp = variable_get('gmap_node_map', _gmap_location_node_map_defaults());
 
   $form['node']['gmap_node_map'] = array(
@@ -509,7 +548,20 @@ function gmap_location_admin_settings() {
     '#default_value' => $temp['macro'],
     '#size' => 50,
     '#maxlength' => 500,
-    '#description' => t('The GMap macro which will be used to display the node information. See the <a href="http://drupal.org/documentation/modules/gmap/macros">documentation on GMap macros</a>.'),
+    '#description' => t(
+      'The GMap macro used when the node information is displayed. See the !macros_link.',
+      array(
+        '!macros_link' => l(
+          'documentation on GMap macros',
+          'http://drupal.org/documentation/modules/gmap/macros',
+          array(
+            'attributes' => array(
+              'target' => '_blank',
+            ),
+          )
+        ),
+      )
+    ),
   );
   $form['node']['gmap_node_map']['header'] = array(
     '#type' => 'textarea',
@@ -550,7 +602,7 @@ function gmap_location_admin_settings() {
   foreach ($ntypes as $key => $value) {
     $form['node']['gmap_node_markers'][$key] = array(
       '#type' => 'gmap_markerchooser',
-      '#title' => t('Marker for %type', array('%type' => $value->name)),
+      '#title' => t('Marker for %type', array('%type' => gmap_location_t("nodetype:type:$key:name", $value->name))),
       '#default_value' => isset($defaults[$key]) ? $defaults[$key] : 'drupal',
     );
     $settings = variable_get("location_settings_node_$key", FALSE);
@@ -562,26 +614,29 @@ function gmap_location_admin_settings() {
 }
 
 /**
- * Implement hook_block_info().
+ * Implements hook_block_info().
  */
 function gmap_location_block_info() {
   return array(
     0 => array(
       'info' => t('Location map'),
-      'cache' => DRUPAL_NO_CACHE, // @@@ Check whether we can fix this by telling drupal what js to use.
+      // @@@ Check whether we can fix this by telling drupal what js to use.
+      'cache' => DRUPAL_NO_CACHE,
     ),
     1 => array(
       'info' => t('Author map'),
-      'cache' => DRUPAL_NO_CACHE, // @@@
+      // @@@
+      'cache' => DRUPAL_NO_CACHE,
     ),
   );
 }
 
 /**
- * Implement hook_block_configure().
+ * Implements hook_block_configure().
  */
 function gmap_location_block_configure($delta = '') {
-  if ($delta == 0) { // Location map
+  // Location map.
+  if ($delta == 0) {
     $form['gmap_location_block_macro'] = array(
       '#type' => 'textfield',
       '#title' => t('Map Macro'),
@@ -597,7 +652,7 @@ function gmap_location_block_configure($delta = '') {
       if ((isset($settings['multiple']['max']) && $settings['multiple']['max']) || variable_get("location_maxnum_$key", 0)) {
         $form["gmap_location_block_macro_$key"] = array(
           '#type' => 'textfield',
-          '#title' => t('Map Macro for %type', array('%type' => $value->name)),
+          '#title' => t('Map Macro for %type', array('%type' => gmap_location_t("nodetype:type:$key:name", $value->name))),
           '#size' => 60,
           '#maxlength' => 500,
           '#default_value' => variable_get("gmap_location_block_macro_$key", ''),
@@ -605,7 +660,8 @@ function gmap_location_block_configure($delta = '') {
       }
     }
   }
-  elseif ($delta == 1) { // Author map
+  // Author map.
+  elseif ($delta == 1) {
     $form['gmap_location_author_block_macro'] = array(
       '#type' => 'textfield',
       '#title' => t('Map Macro'),
@@ -615,10 +671,14 @@ function gmap_location_block_configure($delta = '') {
       '#default_value' => variable_get('gmap_location_author_block_macro', '[gmap |width=100% |height=200px |control=None |behavior=+autozoom +notype]'),
     );
 
+    $ntypes = node_type_get_types();
+    foreach ($ntypes as $type => $name) {
+      $ntypes[$type] = check_plain(gmap_location_t("nodetype:type:$type:name", $name));
+    }
     $form['gmap_location_author_block_types'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Enable author block for the following content types'),
-      '#options' => array_map('check_plain', node_type_get_names()),
+      '#options' => $ntypes,
       '#default_value' => variable_get('gmap_location_author_block_types', array()),
     );
 
@@ -632,7 +692,7 @@ function gmap_location_block_configure($delta = '') {
 }
 
 /**
- * Implement hook_block_save().
+ * Implements hook_block_save().
  */
 function gmap_location_block_save($delta = '', $edit = array()) {
   if ($delta == 0) {
@@ -682,7 +742,7 @@ function gmap_location_block_save($delta = '', $edit = array()) {
 }
 
 /**
- * Implement hook_block_view().
+ * Implements hook_block_view().
  */
 function gmap_location_block_view($delta = '') {
   switch ($delta) {
@@ -691,6 +751,7 @@ function gmap_location_block_view($delta = '') {
         return _gmap_location_block_view(arg(1));
       }
       break;
+
     case 1:
       if (arg(0) == 'node' && is_numeric(arg(1))) {
         return _gmap_location_author_block_view(arg(1));
@@ -699,6 +760,9 @@ function gmap_location_block_view($delta = '') {
   }
 }
 
+/**
+ * Location block view.
+ */
 function _gmap_location_block_view($nid) {
   $block = array();
   $node = node_load($nid);
@@ -747,12 +811,16 @@ function _gmap_location_block_view($nid) {
         '#type' => 'gmap',
         '#gmap_settings' => $map,
       );
-      $block['content'] = drupal_render($element); // @@@ Better theme
+      // @@@ Better theme
+      $block['content'] = drupal_render($element);
     }
   }
   return $block;
 }
 
+/**
+ * Location author block view.
+ */
 function _gmap_location_author_block_view($nid) {
   $block = array();
   $node = node_load($nid);
@@ -791,7 +859,8 @@ function _gmap_location_author_block_view($nid) {
         '#type' => 'gmap',
         '#gmap_settings' => $map,
       );
-      $block['content'] = drupal_render($element); // @@@ Better theme
+      // @@@ Better theme.
+      $block['content'] = drupal_render($element);
     }
   }
   return $block;
@@ -799,11 +868,12 @@ function _gmap_location_author_block_view($nid) {
 
 /**
  * Default theme for image nodes.
+ *
  * @@@ Todo: Move to a tpl.
  */
 function theme_gmap_location_infowindow_node__image(&$vars) {
   $node = $vars['node'];
-  $out = '<a href="' . url('node/' . $node->nid) . '">' . check_plain($node->title) . '</a> <br>';
+  $out = '<a href="' . url('node/' . $node->nid) . '">' . check_plain($node->title) . '</a> <br />';
   $out .= image_display($node, 'thumbnail');
   return $out;
 }
@@ -838,8 +908,14 @@ function theme_gmap_location_infowindow_node(&$vars) {
   // a module called 'flexinode_#.module' in your site's module
   // directory and add theme_hook_gmapnodelabel($node, $location) to it.
   // Be sure to enable your 'flexinode_#.module'.
-  return '<div class="gmapnodelabel gmapnodelabel-' . drupal_clean_css_identifier($node->type) .
-  '">' . strtr(drupal_render(node_view($node, 'teaser')), "'\n\r", '"  ') . '</div>'; // make sure it all goes on one line.
+  // Make sure it all goes on one line.
+  $return = '<div class="gmapnodelabel gmapnodelabel-';
+  $return .= drupal_clean_css_identifier($node->type);
+  $return .= '">';
+  $return .= strtr(drupal_render(node_view($node, 'teaser')), "'\n\r", '"  ');
+  $return .= '</div>';
+
+  return $return;
 }
 
 /**
@@ -853,7 +929,7 @@ function theme_gmap_location_infowindow_user(&$vars) {
 }
 
 /**
- * Implementation of hook_node_type().
+ * Implements hook_node_type().
  */
 function gmap_location_node_type($op, $info) {
   $temp = variable_get('gmap_node_markers', array());
@@ -861,9 +937,11 @@ function gmap_location_node_type($op, $info) {
     case 'delete':
       unset($temp[$info->type]);
       break;
+
     case 'insert':
       $temp[$info->type] = 'drupal';
       break;
+
     case 'update':
       if (!empty($info->old_type) && $info->old_type != $info->type) {
         $temp[$info->type] = $temp[$info->old_type];
@@ -872,4 +950,16 @@ function gmap_location_node_type($op, $info) {
       break;
   }
   variable_set('gmap_node_markers', $temp);
+}
+
+/**
+ * Wrapper function for i18n_string_build() if i18n_string enabled.
+ */
+function gmap_location_t($name, $string) {
+  if (module_exists('i18n_string')) {
+    return i18n_string_build($name, $string);
+  }
+  else {
+    return $string;
+  }
 }

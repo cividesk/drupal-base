@@ -8,7 +8,7 @@
  */
 
 /**
- * Implemenation of hook_help().
+ * Implements hook_help().
  */
 function gmap_macro_builder_help($path, $arg) {
   switch ($path) {
@@ -18,19 +18,19 @@ function gmap_macro_builder_help($path, $arg) {
 }
 
 /**
- * Implementation of hook_perm().
+ * Implements hook_perm().
  */
 function gmap_macro_builder_permission() {
   return array(
     'create gmap macro' => array(
       'title' => t('Create gmap macro'),
       'description' => t('Allows user to create a gmap macro for insertion into content.'),
-    )
+    ),
   );
 }
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function gmap_macro_builder_menu() {
   $items['map/macro'] = array(
@@ -45,11 +45,14 @@ function gmap_macro_builder_menu() {
 
 /**
  * Macro builder form.
- * @param &$form_state
+ *
+ * @param array &$form_state
  *   The $form_state array.
- * @param $settings
+ *
+ * @param array $settings
  *   Additional settings to apply to the macro map.
- * @param $hide
+ *
+ * @param array $hide
  *   Fields to hide from the map. (See code for details.)
  *   Suggestions for better ways of doing this welcome!
  */
@@ -88,7 +91,8 @@ function gmap_macro_builder_form($form, &$form_state, $settings = array(), $hide
   );
   gmap_widget_setup($form['macroform']['mapid'], 'mapid', 'macro_map');
 
-  // @@@ TODO: Roll this next section into an element, it's duplicated from the settings ui.
+  // @@@ TODO: Roll this next section into an element,
+  // it's duplicated from the settings ui.
   $baselayers = array();
 
   gmap_module_invoke('baselayers', $baselayers);

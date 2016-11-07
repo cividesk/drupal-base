@@ -1,5 +1,5 @@
 <?php
-
+// @codingStandardsIgnoreStart
 /**
  * @file
  * gmap_taxonomy install routines.
@@ -28,18 +28,44 @@ function gmap_taxonomy_requirements($phase) {
 function gmap_taxonomy_schema() {
   $schema['gmap_taxonomy_term'] = array(
     'fields' => array(
-      'tid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-      'marker' => array('type' => 'varchar', 'length' => 32),
+      'tid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'marker' => array(
+        'type' => 'varchar',
+        'length' => 32,
+      ),
     ),
     'primary key' => array('tid'),
   );
 
   $schema['gmap_taxonomy_node'] = array(
     'fields' => array(
-      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-//      'vid'    => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-      'tid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-      'marker' => array('type' => 'varchar', 'length' => 32),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      /*'vid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),*/
+      'tid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'marker' => array(
+        'type' => 'varchar',
+        'length' => 32,
+      ),
     ),
     'primary key' => array('nid'),
   );
@@ -53,7 +79,8 @@ function gmap_taxonomy_schema() {
  */
 function gmap_taxonomy_update_5001() {
   $ret = array();
-  // Removed because we just kill the table and recreate it in update 5002^H^H^H^H6001 anyway.
+  // Removed because we just kill the table
+  // and recreate it in update 5002^H^H^H^H6001 anyway.
   return $ret;
 }
 
@@ -70,10 +97,28 @@ function gmap_taxonomy_update_6001() {
 
   $schema['gmap_taxonomy_node'] = array(
     'fields' => array(
-      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-      'vid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-      'tid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
-      'marker' => array('type' => 'varchar', 'length' => 32),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'vid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'tid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'marker' => array(
+        'type' => 'varchar',
+        'length' => 32,
+      ),
     ),
     'primary key' => array('vid'),
     'indexes' => array(
@@ -102,7 +147,7 @@ function gmap_taxonomy_update_7201() {
     $result[$vocabulary->machine_name] = TRUE;
   }
 
-  // Save result
+  // Save result.
   variable_set('gmap_taxonomy_vocabs', $result);
 }
 
@@ -127,3 +172,4 @@ function gmap_taxonomy_update_7000() {
   // @@@ FIXME -- rebuild the table from scratch again.
 }
 */
+// @codingStandardsIgnoreEnd

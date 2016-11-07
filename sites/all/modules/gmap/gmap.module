@@ -14,7 +14,8 @@ use Drupal\gmap\GmapDefaults;
  *
  * Minimum version last changed on: June 9 2008
  *
- * Reason: G_SATELLITE_3D_MAP support in gmap_addons. See http://code.google.com/apis/earth/.
+ * Reason: G_SATELLITE_3D_MAP support in gmap_addons.
+ * See http://code.google.com/apis/earth/.
  *
  * See http://groups.google.com/group/Google-Maps-API/web/api-version-changes
  * for details on using other version numbers.
@@ -28,13 +29,14 @@ define('GMAP_API_VERSION', '3');
  * @deprecated use GmapDefaults::getInstance()->getDefaults()
  */
 function gmap_defaults() {
-  include_once(drupal_get_path('module', 'gmap') . '/lib/Drupal/gmap/GmapDefaults.php');
+  include_once drupal_get_path('module', 'gmap') . '/lib/Drupal/gmap/GmapDefaults.php';
   return GmapDefaults::getInstance()->getDefaults();
 }
 
 /**
+ * Implements hook_theme().
+ *
  * @todo possible move to GmapDraw
- * Implementation of hook_theme().
  */
 function gmap_theme() {
   return array(
@@ -42,23 +44,22 @@ function gmap_theme() {
     'views_view_gmap' => array('render element' => 'element'),
     'gmap_views_marker_label' => array('render element' => 'element'),
     'gmap_marker_popup' => array('variables' => array('label' => '')),
-//    'gmap_overlay_edit' => array('render element' => 'element'),
-//    'gmap_macrotext' => array('render element' => 'element'),
+    // 'gmap_overlay_edit' => array('render element' => 'element'),
+    // 'gmap_macrotext' => array('render element' => 'element'),
     'gmap_dimension' => array('render element' => 'element'),
-//    'gmap_address' => array('render element' => 'element'),
-//    'gmap_align' => array('render element' => 'element'),
+    // 'gmap_address' => array('render element' => 'element'),
+    // 'gmap_align' => array('render element' => 'element'),
     'gmap' => array('render element' => 'element'),
   );
 }
 
 /**
- * @todo move this to GmapBehaviours class
- *
  * Invokes hook_gmap() in every module.
  *
- * @see https://drupal.org/node/2146871
- *
+ * @todo move this to GmapBehaviours class
  * We can't use module_invoke_all() because we pass $map by reference.
+ *
+ * @see https://drupal.org/node/2146871
  */
 function gmap_module_invoke($op, &$map) {
   $return = array();
@@ -76,13 +77,14 @@ function gmap_module_invoke($op, &$map) {
 }
 
 /**
+ * Implements hook_gmap().
+ *
  * @todo possible move to GmapDraw or GmapBehaviours class
- * Implementation of hook_gmap().
  */
 function gmap_gmap($op, &$map) {
   switch ($op) {
     case 'macro':
-      return array(
+      $return = array(
         'points' => array(
           'multiple' => TRUE,
         ),
@@ -96,14 +98,29 @@ function gmap_gmap($op, &$map) {
           'multiple' => TRUE,
         ),
       );
+      return $return;
+
     case 'pre_theme_map':
       break;
+
     case 'macro_multiple':
-      return array('points', 'markers', 'feed', 'circle', 'rpolygon', 'polygon', 'line', 'style');
+      $return = array(
+        'points',
+        'markers',
+        'feed',
+        'circle',
+        'rpolygon',
+        'polygon',
+        'line',
+        'style',
+      );
+      return $return;
+
     case 'libraries':
       return array('geometry');
+
     case 'behaviors':
-      return array(
+      $return = array(
         'locpick' => array(
           'title' => t('Location chooser'),
           'default' => FALSE,
@@ -146,18 +163,20 @@ function gmap_gmap($op, &$map) {
           'help' => t('Enable the "overview map" in the bottom right corner.'),
           'previewable' => TRUE,
         ),
-        /*        'notype' => array(
-                  'title' => t('Disable map type control'),
-                  'default' => FALSE,
-                  'help' => t('Removes the map type control from the upper right corner. Recommended for very narrow maps.'),
-                  'previewable' => TRUE,
-                ), */
+        /* 'notype' => array(
+             'title' => t('Disable map type control'),
+             'default' => FALSE,
+             'help' => t('Removes the map type control from the upper
+              right corner. Recommended for very narrow maps.'),
+             'previewable' => TRUE,
+            ), */
         'collapsehack' => array(
           'title' => t('Work around bugs when maps appear in collapsible fieldsets'),
           'default' => FALSE,
           'help' => t('Enabling this will work around some issues that can occur when maps appear inside collapsible fieldsets.'),
         ),
-        // Note to myself, who keeps forgetting what a scale control actually IS.:
+        // Note to myself, who keeps forgetting what
+        // a scale control actually IS.:
         // |------------  1mi ------------|
         'scale' => array(
           'title' => t('Add scale control to map.'),
@@ -177,12 +196,12 @@ function gmap_gmap($op, &$map) {
           'help' => t('Used for advanced javascript work, this will enable the <em>clickshape</em> event.'),
           'internal' => TRUE,
         ),
-        //'googlebar' => array(
-        //  'title' => t('Enable Google Bar'),
-        //  'default' => FALSE,
-        //  'help' => t('Enable the "Google Bar" at bottom of the map.'),
-        //  'previewable' => TRUE,
-        //),
+        // 'googlebar' => array(
+        // 'title' => t('Enable Google Bar'),
+        // 'default' => FALSE,
+        // 'help' => t('Enable the "Google Bar" at bottom of the map.'),
+        // 'previewable' => TRUE,
+        // ),
         'highlight' => array(
           'title' => t('Highlight marker on rollover'),
           'default' => FALSE,
@@ -190,7 +209,7 @@ function gmap_gmap($op, &$map) {
           'previewable' => TRUE,
         ),
       );
-      break;
+      return $return;
 
     case 'baselayers':
       $map['Google']['Map'] = array(
@@ -219,33 +238,44 @@ function gmap_gmap($op, &$map) {
 
 /**
  * Adds the basic js files needed for a GMap.
+ *
  * Is called by hook_element_info().
- * To add js-files for a specific Views display, please use _gmap_pre_render_map().
+ * To add js-files for a specific Views display,
+ * please use _gmap_pre_render_map().
+ *
  * @deprecated use GmapDefaults::getInstance()->getBaseJs()
  */
 function _gmap_base_js() {
-  include_once(drupal_get_path('module', 'gmap') . '/lib/Drupal/gmap/GmapDefaults.php');
+  include_once drupal_get_path('module', 'gmap') . '/lib/Drupal/gmap/GmapDefaults.php';
   return GmapDefaults::getInstance()->getBaseJs();
 }
 
 /**
- * @deprecated will be removed in next major release upgrade
- * @see http://drupal.org/node/1931138#comment-7137394 deprecated patch
- * @see change record https://drupal.org/node/2159689
+ * Short description must be here.
+ *
  * @todo remove this in next major release upgrade (7.x-3.x or 8.x-1.x)
+ *
+ * @deprecated will be removed in next major release upgrade
+ *
+ * @see http://drupal.org/node/1931138#comment-7137394
+ *
+ * @see https://drupal.org/node/2159689
  */
 function _gmap_doheader() {
 }
 
 /**
- * @todo move this to GmapMacroToolbox
  * Convert a macro string into a GMap array.
  *
- * @param $instring string
+ * @todo move this to GmapMacroToolbox
+ *
+ * @param string $instring
  *   Macro to process.
- * @param $ver int
+ *
+ * @param int $ver
  *   Version to treat macro as.
  *   Set to 1 when processing very old macros, otherwise leave as is.
+ *
  * @return array
  *   A GMap array.
  */
@@ -255,9 +285,11 @@ function gmap_parse_macro($instring, $ver = 2) {
 }
 
 /**
- * @todo move this to GmapView class
  * Theme a marker popup.
+ *
+ * @todo move this to GmapView class.
  * This will get called for markers embedded in macros.
+ *
  * @ingroup themeable
  */
 function theme_gmap_marker_popup($vars) {
@@ -265,8 +297,9 @@ function theme_gmap_marker_popup($vars) {
 }
 
 /**
- * @todo move this to GmapLocation or GmapContrib class
  * Location chooser utility function.
+ *
+ * @todo move this to GmapLocation or GmapContrib class.
  *
  * Creates a map that can be interactively used to fill a form with a
  * location (latitude, longitude and zoom level).
@@ -275,14 +308,18 @@ function theme_gmap_marker_popup($vars) {
  * guarantee it will not be removed eventually.
  *
  * @param mixed $map
- * Either a macro to use as the base map for setting a location, or an already set map associative array.
- * @param array $form
- * A formset associative array. Cannot be more than one deep.
- * @param array $fields
- * An associative array for the field names.  'latitude', 'longitude'=>name of respective array, 'address' is optional.
- * @return mixed
- * A string with the google map code to be inserted onto the page.
+ *   Either a macro to use as the base map for setting a location,
+ *   or an already set map associative array.
  *
+ * @param array $form
+ *   A formset associative array. Cannot be more than one deep.
+ *
+ * @param array $fields
+ *   An associative array for the field names.
+ *   'latitude', 'longitude'=>name of respective array, 'address' is optional.
+ *
+ * @return mixed
+ *   A string with the google map code to be inserted onto the page.
  */
 function gmap_set_location($map, &$form, $fields) {
   static $ctr = 0;
@@ -316,8 +353,9 @@ function gmap_set_location($map, &$form, $fields) {
 }
 
 /**
- * @todo move this to GmapFilterToolbox
  * Handle filter preparation.
+ *
+ * @todo move this to GmapFilterToolbox
  */
 function _gmap_prepare($intext) {
   $out = FALSE;
@@ -340,13 +378,15 @@ function _gmap_prepare($intext) {
     );
     $out[1][$i] = drupal_render($map);
     $i++;
-  } // endwhile process macro
+  }
+  // Endwhile process macro.
   return $out;
 }
 
 /**
- * @todo move this to GmapToolbox
  * Make sure a string is a valid css dimension.
+ *
+ * @todo move this to GmapToolbox
  */
 function gmap_todim($instring) {
   if (!is_string($instring)) {
@@ -363,8 +403,9 @@ function gmap_todim($instring) {
 }
 
 /**
- * @todo move this to GmapForms
  * Ensure a textfield is a valid css dimension string.
+ *
+ * @todo move this to GmapForms
  */
 function gmap_dimension_validate(&$elem, &$form_state) {
   $value = gmap_todim($elem['#value']);
@@ -378,8 +419,9 @@ function gmap_dimension_validate(&$elem, &$form_state) {
 }
 
 /**
+ * Implements hook_filter_info().
+ *
  * @todo move this to GmapFilterToolbox
- * Implement hook_filter_info().
  */
 function gmap_filter_info() {
   $filters['gmap_macro'] = array(
@@ -387,18 +429,22 @@ function gmap_filter_info() {
     'description' => t('GMap macros will be displayed as interactive maps.'),
     'process callback' => '_gmap_filter_process',
     'tips callback' => '_gmap_filter_tips',
-    'cache' => FALSE, // @todo FIX ME ALREADY!!!
+    // @todo FIX ME ALREADY!!!
+    'cache' => FALSE,
   );
   return $filters;
 }
 
 /**
- * @todo move this to GmapFilterToolbox
  * Filter process callback for gmap_macro.
+ *
+ * @todo move this to GmapFilterToolbox
  */
 function _gmap_filter_process($text, $filter, $format) {
-  $gmaps = _gmap_prepare($text); //returns an array of $tables[0] = table macro $table[1]= table html
-  if ($gmaps) { // there are table macros in this node
+  // Returns an array of $tables[0] = table macro $table[1]= table html.
+  $gmaps = _gmap_prepare($text);
+  // There are table macros in this node.
+  if ($gmaps) {
     return str_replace($gmaps[0], $gmaps[1], $text);
   }
   else {
@@ -407,12 +453,14 @@ function _gmap_filter_process($text, $filter, $format) {
 }
 
 /**
- * @todo move this to GmapFilterToolbox
  * Implement tips callback for gmap_macro.
+ *
+ * @todo move this to GmapFilterToolbox
  */
 function _gmap_filter_tips($filter, $format, $long = FALSE) {
-  if (user_access('create gmap macro')) { // only display macro if user can create one
-    return t('Insert Google Map macro.') . '<a href="' . url('map/macro') . '" target="_blank" >' . t('Create a macro') . '</a>';
+  // Only display macro if user can create one.
+  if (user_access('create gmap macro')) {
+    return t('Insert Google Map macro.') . l(t('Create a macro'), 'map/macro', array('attributes' => array('target' => '_blank')));
   }
   else {
     return t('Insert Google Map macro.');
@@ -420,8 +468,9 @@ function _gmap_filter_tips($filter, $format, $long = FALSE) {
 }
 
 /**
+ * Implements hook_menu().
+ *
  * @todo move this to GmapMenu class ?
- * Implementation of hook_menu().
  */
 function gmap_menu() {
   $items['admin/config/services/gmap'] = array(
@@ -437,54 +486,58 @@ function gmap_menu() {
 }
 
 /**
- * @todo move this to GmapCacheToolbox
  * Regenerate the markerdata file.
+ *
+ * @todo move this to GmapCacheToolbox
  */
 function gmap_regenerate_markers() {
-  // This often fails in cli mode, so bail.
-  if (drupal_is_cli()) {
-    return;
-  }
   $contents = '';
 
   $contents .= "// GMap marker image data.\n";
   $contents .= "Drupal.gmap = Drupal.gmap || {};\n";
   $contents .= "Drupal.gmap.icondata = " . drupal_json_encode(gmap_get_icondata(TRUE)) . ";\n";
 
-  $dir = "public://js/";
-
+  $dir = 'public://js/';
+  $filepath = $dir . 'gmap_markers.js';
   // Make sure js/ exists in the files folder.
   if (file_prepare_directory($dir, FILE_CREATE_DIRECTORY)) {
     $file = file_save_data($contents, 'public://js/gmap_markers.js', FILE_EXISTS_REPLACE);
-    if (!empty($file)) {
+    if ($file === FALSE) {
+      drupal_set_message(t('GMap is unable to save the marker bundle. Please check gmap_markers.js permissions!'), 'error');
+    }
+    else {
       variable_set('gmap_marker_file', $file->fid);
     }
   }
   else {
-    drupal_set_message(t('GMap is unable to save the marker bundle. Markers will not work!'), 'error');
+    drupal_set_message(t('GMap is unable to save the marker bundle, so the markers will not work. Please check file system permissions of the %filepath!', array('%filepath' => $filepath)), 'error');
+    watchdog('gmap', 'GMap write error when saving the marker bundle to %filepath.', array('%filepath' => $filepath), WATCHDOG_ERROR);
   }
 
-  // Also regenerate the cached marker titles array
+  // Also regenerate the cached marker titles array.
   gmap_get_marker_titles(TRUE);
 }
 
 /**
+ * Implements hook_flush_caches().
+ *
  * @todo move this to GmapCacheToolbox
- * Implementation of hook_flush_caches().
  */
 function gmap_flush_caches() {
   gmap_regenerate_markers();
 }
 
 /**
+ * Implements hook_element_info().
+ *
  * @todo move this to GmapElement class
- * Implement hook_element_info().
  */
 function gmap_element_info() {
   $path = drupal_get_path('module', 'gmap');
   return array(
     'gmap' => array(
-      '#input' => FALSE, // This isn't a *form* input!!
+      // This isn't a *form* input!!
+      '#input' => FALSE,
       '#gmap_settings' => array_merge(gmap_defaults(), array(
         'points' => array(),
         'pointsOverlays' => array(),
@@ -502,7 +555,7 @@ function gmap_element_info() {
     'gmap_macrotext' => array(
       '#input' => TRUE,
       '#gmap_newtype' => 'textarea',
-//      '#theme' => 'gmap_macrotext',
+      // '#theme' => 'gmap_macrotext',
       '#process' => array('process_gmap_control'),
       '#attached' => array(
         'js' => array(
@@ -523,13 +576,13 @@ function gmap_element_info() {
           "$path/js/polygonEdit/src/polygonEdit_packed.js" => array('weight' => 3),
         ),
       ),
-//      '#theme' => 'select',
+      // '#theme' => 'select',
     ),
     'gmap_style' => array(
       '#input' => TRUE,
       '#tree' => TRUE,
       '#gmap_style_type' => 'poly',
-      '#process' => array('process_gmap_style')
+      '#process' => array('process_gmap_style'),
     ),
     'gmap_address' => array(
       '#input' => TRUE,
@@ -545,32 +598,34 @@ function gmap_element_info() {
     'gmap_latitude' => array(
       '#input' => TRUE,
       '#gmap_newtype' => 'textfield',
-      '#process' => array('process_gmap_control')
+      '#process' => array('process_gmap_control'),
     ),
     'gmap_longitude' => array(
       '#input' => TRUE,
       '#gmap_newtype' => 'textfield',
-      '#process' => array('process_gmap_control')
+      '#process' => array('process_gmap_control'),
     ),
     'gmap_latlon' => array(
       '#input' => TRUE,
       '#gmap_newtype' => 'textfield',
-      '#process' => array('process_gmap_control')
+      '#process' => array('process_gmap_control'),
     ),
     'gmap_markerchooser' => array('#input' => TRUE, '#process' => array('process_gmap_markerchooser')),
     'gmap_dimension' => array(
       '#input' => TRUE,
       '#gmap_newtype' => 'textfield',
       '#process' => array('process_gmap_control'),
-      '#element_validate' => array('gmap_dimension_validate')
+      '#element_validate' => array('gmap_dimension_validate'),
     ),
   );
 }
 
 /**
+ * Implements hook_views_pre_render().
+ *
+ * Pre render function to load ajax-js file, which is
+ * only possible if ajax is enabled in the display.
  * @todo move this to GmapViewsToolbox
- * Implementation of hook_views_pre_render().
- * Pre render function to load ajax-js file, which is only possible if ajax is enabled in the display.
  */
 function gmap_views_pre_render(&$view) {
   static $gmap_processed = FALSE;
@@ -588,8 +643,10 @@ function gmap_views_pre_render(&$view) {
 }
 
 /**
+ * Pre render function to make sure all required JS is available.
+ *
+ * Depending on the display's behavior.
  * @todo move this to GmapElement class
- * Pre render function to make sure all required JS is available, depending on the display's behavior.
  */
 function _gmap_pre_render_map($element) {
   $path = drupal_get_path('module', 'gmap');
@@ -639,8 +696,9 @@ function _gmap_pre_render_map($element) {
 }
 
 /**
- * @todo move this to GmapElement class
  * Generic gmap control #process function.
+ *
+ * @todo move this to GmapElement class
  */
 function process_gmap_control($element, &$form_state, $complete_form) {
   $control = substr($element['#type'], 5);
@@ -674,12 +732,13 @@ function process_gmap_control($element, &$form_state, $complete_form) {
 }
 
 /**
- * @todo move this to GmapElement class
  * Style fieldset #process function.
+ *
+ * @todo move this to GmapElement class
  */
 function process_gmap_style($element) {
   $isline = ($element['#gmap_style_type'] == 'line');
-  // Stroke color
+  // Stroke color.
   $element[0] = array(
     '#type' => 'textfield',
     '#size' => 6,
@@ -689,7 +748,7 @@ function process_gmap_style($element) {
     '#value' => $element['#value'][0],
     '#attributes' => array('class' => array('gmap_style')),
   );
-  // Stroke weight
+  // Stroke weight.
   $element[1] = array(
     '#type' => 'textfield',
     '#title' => t('Stroke weight'),
@@ -700,7 +759,7 @@ function process_gmap_style($element) {
     '#value' => $element['#value'][1],
     '#attributes' => array('class' => array('gmap_style')),
   );
-  // Stroke opacity
+  // Stroke opacity.
   $element[2] = array(
     '#type' => 'textfield',
     '#title' => t('Stroke opacity'),
@@ -710,7 +769,7 @@ function process_gmap_style($element) {
     '#value' => $element['#value'][2],
     '#attributes' => array('class' => array('gmap_style')),
   );
-  // Fill color
+  // Fill color.
   $element[3] = array(
     '#type' => 'textfield',
     '#title' => t('Fill color'),
@@ -740,8 +799,9 @@ function process_gmap_style($element) {
 }
 
 /**
- * @todo move this to GmapElement class
  * Overlay editor #process function.
+ *
+ * @todo move this to GmapElement class
  */
 function process_gmap_overlay_edit($element) {
   // Conver the root element into a fieldset.
@@ -769,8 +829,8 @@ function process_gmap_overlay_edit($element) {
     '#map' => $element['#map'],
     '#options' => array(
       'Remove' => t('Remove'),
-//      'updatestyle' => t('Update Styles'),
-//      'removestyle' => t('Remove Styles'),
+      // 'updatestyle' => t('Update Styles'),
+      // 'removestyle' => t('Remove Styles'),
       'Edit Info' => t('Edit Info'),
     ),
   );
@@ -781,7 +841,7 @@ function process_gmap_overlay_edit($element) {
     '#map' => $element['#map'],
     '#options' => gmap_get_marker_titles(),
     '#title' => t('Marker'),
-//    '#theme' => 'gmap_overlay_edit',
+    // '#theme' => 'gmap_overlay_edit',
   );
   gmap_widget_setup($element['marker'], 'overlayedit');
 
@@ -789,7 +849,8 @@ function process_gmap_overlay_edit($element) {
     '#type' => 'gmap_style',
     '#title' => t('Line style'),
     '#gmap_style_type' => 'line',
-    '#default_value' => array('0000ff', 5, 45, '', ''), // @@@
+    // @@@.
+    '#default_value' => array('0000ff', 5, 45, '', ''),
   );
   gmap_widget_setup($element['linestyle'], 'overlayedit_linestyle', $element['#map']);
   $element['linestyle']['linestyle_apply'] = array(
@@ -804,7 +865,8 @@ function process_gmap_overlay_edit($element) {
     '#type' => 'gmap_style',
     '#title' => t('Polygon style'),
     '#gmap_style_type' => 'poly',
-    '#default_value' => array('000000', 3, 25, 'ff0000', 45), // @@@
+    // @@@.
+    '#default_value' => array('000000', 3, 25, 'ff0000', 45),
   );
   gmap_widget_setup($element['polystyle'], 'overlayedit_polystyle', $element['#map']);
   $element['polystyle']['polystyle_apply'] = array(
@@ -820,8 +882,9 @@ function process_gmap_overlay_edit($element) {
 }
 
 /**
- * @todo move this to GmapElement class
  * Address widget #process function.
+ *
+ * @todo move this to GmapElement class
  */
 function process_gmap_address($element) {
   $element['#type'] = 'textfield';
@@ -831,8 +894,9 @@ function process_gmap_address($element) {
 }
 
 /**
- * @todo move this to GmapElement class
  * Marker chooser #process function.
+ *
+ * @todo move this to GmapElement class
  */
 function process_gmap_markerchooser($element) {
   $element['#type'] = 'select';
@@ -846,14 +910,14 @@ function process_gmap_markerchooser($element) {
 }
 
 /**
+ * Perform some normalization on the map object to prevent errors.
+ *
  * @todo move this to GmapToolbox
- * Perform some normalization on the map object
- * to prevent errors.
  */
 function gmap_map_cleanup(&$map) {
   // Google is picky about this one.
   $map['zoom'] = (int) $map['zoom'];
-  // Normalize latitude / longitude
+  // Normalize latitude / longitude.
   if ($map['latlong']) {
     $map['latlon'] = $map['latlong'];
     unset($map['latlong']);
@@ -862,7 +926,8 @@ function gmap_map_cleanup(&$map) {
   if (isset($map['extent']) && is_string($map['extent'])) {
     $tmp = explode(',', $map['extent']);
     if (count($tmp) == 4) {
-      // String form of extent has x,y, but native array form is lat,lon, so need to flip them a bit.
+      // String form of extent has x,y, but native array
+      // form is lat,lon, so need to flip them a bit.
       $map['extent'] = array(array($tmp[1], $tmp[0]), array($tmp[3], $tmp[2]));
     }
     else {
@@ -884,8 +949,9 @@ function gmap_map_cleanup(&$map) {
 }
 
 /**
+ * Gmap element theme hook.
+ *
  * @todo looks like this is a part of feature GmapDraw class
- * Gmap element theme hook
  */
 function theme_gmap($variables) {
   $element = $variables['element'];
@@ -927,7 +993,8 @@ function theme_gmap($variables) {
   gmap_map_cleanup($map);
 
   // Add a class around map bubble contents.
-  // @@@ Bdragon sez: Becw, this doesn't belong here. Theming needs to get fixed instead..
+  // @@@ Bdragon sez: Becw, this doesn't belong here.
+  // Theming needs to get fixed instead..
   if (isset($map['markers'])) {
     foreach ($map['markers'] as $i => $marker) {
       if (isset($marker['text'])) {
@@ -940,9 +1007,11 @@ function theme_gmap($variables) {
     case 'left':
       $element['#attributes']['class'][] = 'gmap-left';
       break;
+
     case 'right':
       $element['#attributes']['class'][] = 'gmap-right';
       break;
+
     case 'center':
     case 'centre':
       $element['#attributes']['class'][] = 'gmap-center';
@@ -955,12 +1024,14 @@ function theme_gmap($variables) {
   $element['#attributes']['class'] = array_merge($element['#attributes']['class'], array(
     'gmap',
     'gmap-map',
-    'gmap-' . $mapid . '-gmap'
+    'gmap-' . $mapid . '-gmap',
   ));
 
-  // Some markup parsers (IE) don't handle empty inners well. Use the space to let users know javascript is required.
+  // Some markup parsers (IE) don't handle empty inners well.
+  // Use the space to let users know javascript is required.
   // @@@ Bevan sez: Google static maps could be useful here.
-  // @@@ Bdragon sez: Yeah, would be nice, but hard to guarantee functionality. Not everyone uses the static markerloader.
+  // @@@ Bdragon sez: Yeah, would be nice, but hard to guarantee functionality.
+  // Not everyone uses the static markerloader.
   $o = '<div style="' . implode('; ', $style) . ';" id="' . $element['#id'] . '"' . drupal_attributes($element['#attributes']) . '><noscript>' . t('Javascript is required to view this map.') . '</noscript></div>';
 
   gmap_module_invoke('pre_theme_map', $map);
@@ -980,18 +1051,21 @@ function theme_gmap($variables) {
 }
 
 /**
- * @todo move this to GmapDraw class
  * Set up widget.
+ *
  * This function will change a form element's ID so it is found
  * by the GMap handlers system.
- * @param $element
- * The form element to modify.
- * @param $type
- * The gmap widget type to map to.
+ * @todo move this to GmapDraw class.
+ *
+ * @param array $element
+ *   The form element to modify.
+ *
+ * @param string $type
+ *   The gmap widget type to map to.
+ *
  * @param null $map
- * The map id. If not defined, $element['#map'] will be used.
+ *   The map id. If not defined, $element['#map'] will be used.
  */
-
 function gmap_widget_setup(&$element, $type, $map = NULL) {
   if (!$map) {
     if (isset($element['#map'])) {
@@ -1016,8 +1090,10 @@ function gmap_widget_setup(&$element, $type, $map = NULL) {
 }
 
 /**
- * @todo move this to GmapToolbox
  * Get a CSS id for a map and type.
+ *
+ * @todo move this to GmapToolbox
+ *
  * Since CSS ids have to be unique, GMap related IDs are assigned by
  * this function.
  */
@@ -1034,8 +1110,9 @@ function gmap_get_id($map, $type) {
 }
 
 /**
- * @todo move this to GmapToolbox
  * Generate a dynamic map identifier.
+ *
+ * @todo move this to GmapToolbox
  */
 function gmap_get_auto_mapid() {
   static $auto = 0;
@@ -1044,8 +1121,9 @@ function gmap_get_auto_mapid() {
 }
 
 /**
- * @todo move this to GmapMarkerInfo class
  * Get the list of marker titles.
+ *
+ * @todo move this to GmapMarkerInfo class
  */
 function gmap_get_marker_titles($reset = FALSE) {
   static $titles;
@@ -1071,8 +1149,9 @@ function gmap_get_marker_titles($reset = FALSE) {
 }
 
 /**
- * @todo move this to GmapMarkerInfo class
  * Get the JSON icon data for all the default markers.
+ *
+ * @todo move this to GmapMarkerInfo class
  */
 function gmap_get_icondata($reset = FALSE) {
   static $icons;
@@ -1094,21 +1173,22 @@ function gmap_get_icondata($reset = FALSE) {
 }
 
 /**
- * @todo move this to GmapPolylineToolbox or GmapToolbox
  * Utility function to allow high-precision decimals to work with the SQL layer.
+ *
  * Use concatenation. (Apparently unquoted %s is bad.)
+ * @todo move this to GmapPolylineToolbox or GmapToolbox
  */
 function gmap_decimal($num) {
   // Paraphrased from postgresql documentation:
   //
   // Numbers in SQL can be in one of these forms:
-  //   digits
-  //   digits.[digits][e[+-]digits]
-  //   [digits].digits[e[+-]digits]
-  //   digitse[+-]digits
+  // digits,
+  // digits.[digits][e[+-]digits],
+  // [digits].digits[e[+-]digits],
+  // digitse[+-]digits,
   // where "digits" is one or more decimal digits.
 
-  // Trim extra whitespace
+  // Trim extra whitespace.
   $num = trim($num);
   // Check if we're in an acceptable form.
   if (preg_match('/^[+\-]?((\d+)|(\d+\.\d*)|(\d*\.\d+))(e[+\-]?\d+)?$/', $num) === 1) {
@@ -1120,13 +1200,15 @@ function gmap_decimal($num) {
 }
 
 /**
- * @todo move this to GmapRequest class
  * Utility function to use the google maps geocoder server side.
+ *
+ * @todo move this to GmapRequest class
+ *
  * This is an easy, quick way to geocode a single address.
- * Note: This is a REMOTE CALL TO GOOGLE. Do NOT use this where performance matters,
+ * Note: This is a REMOTE CALL TO GOOGLE.
+ * Do NOT use this where performance matters,
  * as it could possibly take several seconds for this function to return.
- * See http://www.google.com/apis/maps/documentation/reference.html#GGeoStatusCode
- *  for a description of the possible status codes.
+ * @see http://www.google.com/apis/maps/documentation/reference.html#GGeoStatusCode
  * @see http://drupal.org/node/1940474
  */
 function gmap_geocode($address, $tld = 'com') {
@@ -1157,39 +1239,50 @@ function gmap_geocode($address, $tld = 'com') {
 }
 
 /**
- * @todo move this to GmapDraw class
  * Simple way to draw a map from inside a theme.
- * @return mixed
- * @param $latitude
- * Latitude of marker.
- * @param $longitude
- * Longitude of marker.
+ *
+ * @todo move this to GmapDraw class
+ *
+ * @param array $latitude
+ *   Latitude of marker.
+ *
+ * @param array $longitude
+ *   Longitude of marker.
+ *
  * @param string $markername
- * Marker to use.
- *   '' will fall back to google's default marker.
+ *   Marker to use.'' will fall back to google's default marker.
+ *
  * @param string $info
- * What to show in the bubble when the marker is clicked.
+ *   What to show in the bubble when the marker is clicked.
  *   Leave blank if you don't want a bubble.
+ *
  * @param string $zoom
- * 'default' will use the default zoom from the settings page.
- *  3 is usually a good value to use.
+ *   'default' will use the default zoom from the settings page.
+ *   3 is usually a good value to use.
+ *
  * @param string $width
- * 'default' will use the default width from the settings page.
+ *   'default' will use the default width from the settings page.
+ *
  * @param string $height
- * 'default' will use the default height from the settings page.
+ *   'default' will use the default height from the settings page.
+ *
  * @param bool $autoshow
- * If set to TRUE, automatically show the marker bubble.
+ *   If set to TRUE, automatically show the marker bubble.
+ *
  * @param array $map
  *   Override parts of the map array.
  *   If you need to do much with this, you should probabaly be putting together
  *   the map array manually.
+ *
  * @return string
+ *   Return rendered element.
  */
 function gmap_simple_map($latitude, $longitude, $markername = '', $info = '', $zoom = 'auto', $width = 'default', $height = 'default', $autoshow = FALSE, $map = array()) {
   $settings = array(
     'id' => gmap_get_auto_mapid(),
-    'latitude' => $latitude, // Center the map
-    'longitude' => $longitude, // on the marker.
+    // Center the map on the marker.
+    'latitude' => $latitude,
+    'longitude' => $longitude,
   );
   if ($zoom != 'default') {
     $settings['zoom'] = $zoom;
@@ -1207,7 +1300,7 @@ function gmap_simple_map($latitude, $longitude, $markername = '', $info = '', $z
       'longitude' => $longitude,
       'markername' => $markername,
       'offset' => 0,
-    )
+    ),
   );
 
   if (!empty($info)) {
@@ -1230,8 +1323,10 @@ function gmap_simple_map($latitude, $longitude, $markername = '', $info = '', $z
 }
 
 /**
+ * Implements hook_keys_service().
+ *
+ * (from the keys api)
  * @todo move this to GmapContribToolbox class
- * Implementation of hook_keys_service(). (from the keys api)
  */
 function gmap_keys_service() {
   // @todo Remove after everyone has upgraded from keys api.
@@ -1284,7 +1379,8 @@ function gmap_get_key() {
 }
 
 /**
- * Implementation of hook_views_plugins().
+ * Implements hook_views_plugins().
+ *
  * @todo move this to GmapViews class
  */
 function gmap_views_plugins() {
@@ -1309,7 +1405,7 @@ function gmap_views_plugins() {
         'uses row plugin' => TRUE,
         'uses fields' => TRUE,
         'uses options' => TRUE,
-        //'uses grouping' => TRUE,
+        // 'uses grouping' => TRUE,
         'type' => 'normal',
       ),
     ),
@@ -1317,8 +1413,9 @@ function gmap_views_plugins() {
 }
 
 /**
+ * Implements hook_views_ajax_data_alter().
+ *
  * @todo move this to GmapViews class
- * Implementation of hook_views_ajax_data_alter().
  */
 function gmap_views_ajax_data_alter(&$commands, $view) {
   // Add js callback only with gmap style plugins and with ajax.
@@ -1328,11 +1425,11 @@ function gmap_views_ajax_data_alter(&$commands, $view) {
       $plugin_styles[] = $display->display_options['style_plugin'];
     }
   }
-  if (!(in_array('gmap', $plugin_styles))) {
+  if (!count(array_intersect(array('gmap', 'gmapextended'), $plugin_styles))) {
     return;
   }
 
-  // Find the JQuery selector for the view's wrapper in the DOM
+  // Find the JQuery selector for the view's wrapper in the DOM.
   $target = '';
   foreach ($commands as $command) {
     if ($command['command'] == 'insert') {
@@ -1347,9 +1444,7 @@ function gmap_views_ajax_data_alter(&$commands, $view) {
 }
 
 /**
- * @param $variables
- * @return string
- * @todo possible move this to GmapView class
+ * Views map theme.
  */
 function theme_gmap_views_ui_gmapextended($variables) {
   $form = $variables['form'];
@@ -1379,7 +1474,8 @@ function theme_gmap_views_ui_gmapextended($variables) {
   }
 
   // Add the special 'None' row.
-//  $rows[] = array(t('None'), '', '', '', array('align' => 'center', 'data' => drupal_render($form['default'][-1])));
+  // $rows[] = array(t('None'), '', '', '',
+  // array('align' => 'center', 'data' => drupal_render($form['default'][-1])));
 
   $output .= theme('table', array('header' => $header, 'rows' => $rows));
   $output .= drupal_render_children($form);
@@ -1387,8 +1483,9 @@ function theme_gmap_views_ui_gmapextended($variables) {
 }
 
 /**
- * @todo possible move this to GmapView class
  * Preprocess function for theme_gmap_view_gmap().
+ *
+ * @todo possible move this to GmapView class
  */
 function template_preprocess_gmap_view_gmap(&$vars) {
   $vars['map_object'] = $vars['rows'];
@@ -1397,15 +1494,18 @@ function template_preprocess_gmap_view_gmap(&$vars) {
   $vars['map_element'] = array(
     '#type' => 'gmap',
     '#gmap_settings' => $vars['map_object'],
+    '#view' => $vars['view'],
   );
   // Theme the map.
   $vars['map'] = drupal_render($vars['map_element']);
 }
 
 /**
+ * Determine the site protocol (http or https).
+ *
  * @todo move this to GmapRequest class
- * Determine the site protocol (http or https)
  */
 function gmap_views_protocol() {
-  return (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https' : 'http';
+  global $base_url;
+  return parse_url($base_url, PHP_URL_SCHEME) == 'https' ? 'https' : 'http';
 }

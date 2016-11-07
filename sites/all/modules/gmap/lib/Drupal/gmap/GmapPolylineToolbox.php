@@ -60,14 +60,16 @@ class GmapPolylineToolbox {
   static protected $gmapInstance;
 
   /**
-   * do not change
+   * Do not change.
    */
   private function __construct() {
     self::$levels = $this->getZoomLevels();
   }
 
   /**
-   * @return GmapPolylineToolbox SingleTon instance
+   * Getting instance.
+   * @return array
+   *   GmapPolylineToolbox SingleTon instance
    */
   static public function getInstance() {
     if (is_null(self::$gmapInstance)) {
@@ -78,29 +80,31 @@ class GmapPolylineToolbox {
 
 
   /**
-   * The following  methods will encode numbers so that they may be used
-   * in "Encoded Polylines" on Google Maps. The encoding is described here:
+   * The following  methods will encode numbers.
+   *
+   * So that they may be used in "Encoded Polylines" on Google Maps.
+   * The encoding is described here:
    *   http://code.google.com/apis/maps/documentation/polylinealgorithm.html
    *
    * Numbers for latitudes/longitudes and levels are encoded slightly
-   * differently--when generating Encoded Polylines, latitudes and longitudes are
-   * encoded with gmap_polyutil_encode_signed(), and "levels" are encoded using
-   * gmap_polyutil_encode_unsigned().
+   * differently--when generating Encoded Polylines, latitudes and
+   * longitudes are encoded with gmap_polyutil_encode_signed(),
+   * and "levels" are encoded using gmap_polyutil_encode_unsigned().
    *
    * former gmap_polyutil_encode_latlon($x)
    */
-
-  function setLatLonNumber($x) {
+  public function setLatLonNumber($x) {
     $this->latlonNumber = $x;
     return $this;
   }
 
   /**
-   * former gmap_polyutil_encode_latlon($x)
+   * Former gmap_polyutil_encode_latlon($x).
+   *
    * @return string
+   *   LatLon.
    */
-
-  function getEncodedLatLon() {
+  public function getEncodedLatLon() {
     $this->latlonNumber = round($this->latlonNumber * 1e5) << 1;
     if ($this->latlonNumber < 0) {
       $this->latlonNumber = ~($this->latlonNumber);
@@ -110,19 +114,23 @@ class GmapPolylineToolbox {
   }
 
   /**
-   * former gmap_polyutil_encode_latlon($x)
+   * Former gmap_polyutil_encode_latlon($x).
+   *
    * @return string
+   *   Levels.
    */
-  function getEncodedLevels() {
+  public function getEncodedLevels() {
     $this->latlonLevels = $this->setLatLonNumber(abs($this->latlonNumber))->getEncode();
     return $this->latlonLevels;
   }
 
   /**
-   * former _gmap_polyutil_encode($x)
+   * Former _gmap_polyutil_encode($x).
+   *
    * @return string
+   *   Encoded.
    */
-  function getEncode() {
+  public function getEncode() {
     $this->encoded = '';
     while ($this->latlonNumber >= 32) {
       $this->encoded .= chr((32 | ($this->latlonNumber & 31)) + 63);
@@ -133,12 +141,18 @@ class GmapPolylineToolbox {
   }
 
   /**
-   * Points set from former gmap_polyutil_dist($p1, $p2)
-   * @param $p1
-   * @param $p2
-   * @return $this
+   * Points set from former gmap_polyutil_dist($p1, $p2).
+   *
+   * @param string $p1
+   *   Input 1.
+   *
+   * @param string $p2
+   *   Input 2.
+   *
+   * @return object
+   *   $this.
    */
-  function setLinePoints($p1, $p2) {
+  public function setLinePoints($p1, $p2) {
     $this->startPoint = $p1;
     $this->endPoint = $p2;
     return $this;
@@ -146,30 +160,38 @@ class GmapPolylineToolbox {
 
   /**
    * Distance in two dimensions.
+   *
    * √((x1-x0)^2 + (y1-y0)^2)
    * former gmap_polyutil_dist($p1, $p2)
    */
-  function getDist() {
+  public function getDist() {
     $this->distance = sqrt(pow($this->endPoint[0] - $this->startPoint[0], 2) + pow($this->endPoint[1] - $this->startPoint[1], 2));
     return $this->distance;
   }
 
   /**
-   * Set $this->measurePoint to value
-   * @param $q
-   * @return $this
+   * Set $this->measurePoint to value.
+   *
+   * @param string $q
+   *   Input string.
+   *
+   * @return object
+   *   $this
    */
-  function setMeasurePoint($q) {
+  public function setMeasurePoint($q) {
     $this->measurePoint = $q;
     return $this;
   }
 
   /**
    * Distance between a point and a line segment.
+   *
    * former gmap_polyutil_point_line_dist()
+   *
    * @return float
+   *   Distance.
    */
-  function getPointLineDist() {
+  public function getPointLineDist() {
     if ($this->startPoint[0] == $this->endPoint[0] && $this->startPoint[1] == $this->endPoint[1]) {
       // lp1 and lp2 are the same point--they don't define a line--so we return
       // the distance between two points.
@@ -178,63 +200,69 @@ class GmapPolylineToolbox {
 
     // Use the dot product to find where q lies with respect to the line segment
     // p1p2. For more information, see:
-    //   http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/
-    //   http://www.codeguru.com/forum/printthread.php?t=194400
+    // http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/
+    // http://www.codeguru.com/forum/printthread.php?t=194400
     $u = (($this->endPoint[1] - $this->startPoint[1]) * ($this->measurePoint[1] - $this->startPoint[1]) + ($this->endPoint[0] - $this->startPoint[0]) * ($this->measurePoint[0] - $this->startPoint[0])) / (pow($this->endPoint[1] - $this->startPoint[1], 2) + pow($this->endPoint[0] - $this->startPoint[0], 2));
 
-    if ($u <= 0) { // point is not alongside segment, it is further off in $p1's direction
+    // Point is not alongside segment, it is further off in $p1's direction.
+    if ($u <= 0) {
       return $this->setLinePoints($this->measurePoint, $this->startPoint)->getDist();
     }
-    elseif ($u >= 1) { // point is not alongside segment, it is further off in $p2's direction
+    // Point is not alongside segment, it is further off in $p2's direction.
+    elseif ($u >= 1) {
       return $this->setLinePoints($this->measurePoint, $this->endPoint)->getDist();
     }
-    else { // point is alongside segment
-      // calculate distance between q and the nearest point on the line segment
-      // use $u to calculate the nearest point on the line segment:
-      //   p1 + u*(p2 - p1) => [p1x + u*(p2x - p1x), p1y + u*(p2y - p1y)]
+    else {
+      // Point is alongside segment.
+      // Calculate distance between q and the nearest point on the line segment.
+      // Use $u to calculate the nearest point on the line segment:
+      // p1 + u*(p2 - p1) => [p1x + u*(p2x - p1x), p1y + u*(p2y - p1y)]
       return $this->setLinePoints($this->measurePoint, array($this->startPoint[0] + $u * ($this->endPoint[0] - $this->startPoint[0]), $this->startPoint[1] + $u * ($this->endPoint[1] - $this->startPoint[1])))->getDist();
     }
   }
 
   /**
-   * former gmap_polyutil_dp_encode($points)
+   * Former gmap_polyutil_dp_encode($points).
    *
    * @param array $points
-   * An array of coordinate pairs.
+   *   An array of coordinate pairs.
    *
-   * @return $this
+   * @return object
+   *   $this
    */
-  function setPoints(array $points) {
+  public function setPoints(array $points) {
     $this->points = $points;
     return $this;
   }
 
   /**
-   * Implementation of the Douglas-Peucker polyline simplification algorithm. See:
+   * Implementation of the Douglas-Peucker polyline simplification algorithm.
+   *
+   * See:
    * http://facstaff.unca.edu/mcmcclur/GoogleMaps/EncodePolyline/algorithm.html
    *
    * former gmap_polyutil_dp_encode($points)
    *
    * @return array
-   *
-   *   An array of keys => weights; the keys correspond with indices of points in
-   *   the $points array. Some points may be insignificant according to the
+   *   An array of keys => weights; the keys correspond with indices of points
+   *   in the $points array. Some points may be insignificant according to the
    *   algorithm - they will not have entries in the return array. The "weights"
-   *   are actually the point's distance from the line segment that it subdivides.
+   *   are actually the point's distance from the line segment that it
+   *   subdivides.
    */
-  function getDPEncode() {
+  public function getDPEncode() {
     $this->pointWeights = array();
     $max_i = 0;
 
     if (count($this->points) > 2) {
-      // the 'stack' holds line segments to be simplified
+      // The 'stack' holds line segments to be simplified.
       $stack[] = array(0, count($this->points) - 1);
 
       while (count($stack) > 0) {
-        // take a line segment to look at
+        // Take a line segment to look at.
         $segment = array_pop($stack);
 
-        // figure out which subdividing point is the furthest off the line segment
+        // Figure out which subdividing point is the furthest off the line segment.
         $max_dist = 0;
         for ($i = $segment[0] + 1; $i < $segment[1]; $i++) {
           $dist = $this
@@ -247,7 +275,7 @@ class GmapPolylineToolbox {
           }
         }
 
-        // if the subdividing point found above is significantly off the line
+        // If the subdividing point found above is significantly off the line,
         // segment then we want to simplify further. Add sub-segments to the stack.
         if ($max_dist > self::GMAP_DP_EPSILON) {
           $this->pointWeights[$max_i] = $max_dist;
@@ -266,26 +294,27 @@ class GmapPolylineToolbox {
   }
 
   /**
-   * Simplify a set of points and generate an "Encoded Polyline" for Google Maps.
+   * Simplify a set of points and generate an "Encoded Polyline" for GMaps.
    *
    * former gmap_polyutil_polyline($points)
    *
    * @return array
    *   An array containing the point and zoom information necessary to display
-   *   encoded polylines on Google Maps: 'points', 'levels', 'numLevels', and 'zoomFactor'.
+   *   encoded polylines on Google Maps:
+   *   'points', 'levels', 'numLevels', and 'zoomFactor'.
    */
-  function getPolyline() {
+  public function getPolyline() {
     $points_encoded = '';
     $levels_encoded = '';
 
-    // simplify the line
+    // Simplify the line.
     $weights = $this->getDPEncode();
 
     $previous = array(0, 0);
     foreach ($this->points as $i => $p) {
       if (isset($weights[$i])) {
-        // encode each simplified point
-        // the deltas between points are encoded, rather than the point values themselves
+        // Encode each simplified point,
+        // the deltas between points are encoded, rather than the point values themselves.
         $points_encoded .= $this->setLatLonNumber($p[0] - $previous[0])->getEncodedLatLon() . $this->setLatLonNumber($p[1] - $previous[1])->getEncodedLatLon();
         $levels_encoded .= $this->setLatLonNumber($this->setWeight($weights[$i])->getZoomLevel())->getEncodedLevels();
         $previous = $p;
@@ -301,13 +330,14 @@ class GmapPolylineToolbox {
   }
 
   /**
-   * former _gmap_polyutil_zoom_levels()
-   *
    * Build a logarithmic scale of zoom levels.
    *
+   * former _gmap_polyutil_zoom_levels()
+   *
    * @return mixed
+   *   Zoom levels.
    */
-  function getZoomLevels() {
+  public function getZoomLevels() {
     if (!isset(self::$levels)) {
       for ($i = 0; $i < self::GMAP_ZOOM_LEVELS; $i++) {
         self::$levels[$i] = self::GMAP_DP_EPSILON * pow(self::GMAP_ZOOM_FACTOR, self::GMAP_ZOOM_LEVELS - $i - 1);
@@ -317,24 +347,34 @@ class GmapPolylineToolbox {
   }
 
   /**
-   * former _gmap_polyutil_get_zoom_level($weight)
-   * @param $weight
-   * @return $this
+   * Setting a weight.
+   *
+   * former _gmap_polyutil_get_zoom_level($weight).
+   *
+   * @param int $weight
+   *   Weight for setting.
+   *
+   * @return object
+   *   $this.
    */
-  function setWeight($weight) {
+  public function setWeight($weight) {
     $this->weight = $weight;
     return $this;
   }
 
   /**
+   * Place points in levels.
+   *
    * former _gmap_polyutil_get_zoom_level($weight)
    *
-   * Place points in levels based on their "weight" -- a value derived from
-   * distance calculations in the simplification algorithm, gmap_polyutil_dp_encode().
+   * Place points in levels based on their "weight" -- a value
+   * derived from distance calculations in the
+   * simplification algorithm, gmap_polyutil_dp_encode().
    *
    * @return int
+   *   Zoom level.
    */
-  function getZoomLevel() {
+  public function getZoomLevel() {
     $i = 0;
     while (self::$levels[$i] > $this->weight) {
       $i++;
@@ -342,4 +382,4 @@ class GmapPolylineToolbox {
     return self::GMAP_ZOOM_LEVELS - $i - 1;
   }
 
-} 
+}

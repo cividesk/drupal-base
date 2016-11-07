@@ -14,9 +14,9 @@ namespace tests\inc;
  * [3] http://mathworld.wolfram.com/
  */
 
-DEFINE('GMAP_DP_EPSILON', 0.00001);
-DEFINE('GMAP_ZOOM_LEVELS', 18);
-DEFINE('GMAP_ZOOM_FACTOR', 2);
+define('GMAP_DP_EPSILON', 0.00001);
+define('GMAP_ZOOM_LEVELS', 18);
+define('GMAP_ZOOM_FACTOR', 2);
 
 
 /**
@@ -29,6 +29,10 @@ DEFINE('GMAP_ZOOM_FACTOR', 2);
  * encoded with gmap_polyutil_encode_signed(), and "levels" are encoded using
  * gmap_polyutil_encode_unsigned().
  */
+
+/**
+ * Encode latlon function.
+ */
 function legacy_gmap_polyutil_encode_latlon($x) {
   $x = round($x * 1e5) << 1;
   if ($x < 0) {
@@ -37,10 +41,16 @@ function legacy_gmap_polyutil_encode_latlon($x) {
   return legacy__gmap_polyutil_encode($x);
 }
 
+/**
+ * Encode levels function.
+ */
 function legacy_gmap_polyutil_encode_levels($x) {
   return legacy__gmap_polyutil_encode(abs($x));
 }
 
+/**
+ * Gmap_polyutil encode function.
+ */
 function legacy__gmap_polyutil_encode($x) {
   $result = '';
   while ($x >= 32) {
@@ -53,6 +63,7 @@ function legacy__gmap_polyutil_encode($x) {
 
 /**
  * Distance in two dimensions.
+ *
  * √((x1-x0)^2 + (y1-y0)^2)
  */
 function legacy_gmap_polyutil_dist($p1, $p2) {
@@ -61,12 +72,18 @@ function legacy_gmap_polyutil_dist($p1, $p2) {
 
 /**
  * Distance between a point and a line segment.
- * @param $q
+ *
+ * @param array $q
  *   Point to measure.
- * @param $p1
+ *
+ * @param array $p1
  *   Start point of line segment.
- * @param $p2
+ *
+ * @param array $p2
  *   End point of line segment.
+ *
+ * @return float
+ *   poliutil_dist.
  */
 function legacy_gmap_polyutil_point_line_dist($q, $p1, $p2) {
   if ($p1[0] == $p2[0] && $p1[1] == $p2[1]) {
@@ -77,31 +94,36 @@ function legacy_gmap_polyutil_point_line_dist($q, $p1, $p2) {
 
   // Use the dot product to find where q lies with respect to the line segment
   // p1p2. For more information, see:
-  //   http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/
-  //   http://www.codeguru.com/forum/printthread.php?t=194400
+  // http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/
+  // http://www.codeguru.com/forum/printthread.php?t=194400
   $u = (($p2[1] - $p1[1]) * ($q[1] - $p1[1]) + ($p2[0] - $p1[0]) * ($q[0] - $p1[0])) / (pow($p2[1] - $p1[1], 2) + pow($p2[0] - $p1[0], 2));
-
-  if ($u <= 0) { // point is not alongside segment, it is further off in $p1's direction
+  // Point is not alongside segment, it is further off in $p1's direction.
+  if ($u <= 0) {
     return legacy_gmap_polyutil_dist($q, $p1);
   }
-  elseif ($u >= 1) { // point is not alongside segment, it is further off in $p2's direction
+  // Point is not alongside segment, it is further off in $p2's direction.
+  elseif ($u >= 1) {
     return legacy_gmap_polyutil_dist($q, $p2);
   }
-  else { // point is alongside segment
+  else {
+    // Point is alongside segment
     // calculate distance between q and the nearest point on the line segment
     // use $u to calculate the nearest point on the line segment:
-    //   p1 + u*(p2 - p1) => [p1x + u*(p2x - p1x), p1y + u*(p2y - p1y)]
+    // p1 + u*(p2 - p1) => [p1x + u*(p2x - p1x), p1y + u*(p2y - p1y)].
     return legacy_gmap_polyutil_dist($q, array($p1[0] + $u * ($p2[0] - $p1[0]), $p1[1] + $u * ($p2[1] - $p1[1])));
   }
 }
 
 /**
- * Implementation of the Douglas-Peucker polyline simplification algorithm. See:
+ * Implementation of the Douglas-Peucker polyline simplification algorithm.
+ *
+ * See:
  * http://facstaff.unca.edu/mcmcclur/GoogleMaps/EncodePolyline/algorithm.html
  *
- * @param $points
+ * @param array $points
  *   An array of coordinate pairs.
- * @return
+ *
+ * @return array
  *   An array of keys => weights; the keys correspond with indices of points in
  *   the $points array. Some points may be insignificant according to the
  *   algorithm--they will not have entries in the return array. The "weights"
@@ -111,14 +133,15 @@ function legacy_gmap_polyutil_dp_encode($points) {
   $weights = array();
 
   if (count($points) > 2) {
-    // the 'stack' holds line segments to be simplified
+    // The 'stack' holds line segments to be simplified.
     $stack[] = array(0, count($points) - 1);
 
     while (count($stack) > 0) {
-      // take a line segment to look at
+      // Take a line segment to look at.
       $segment = array_pop($stack);
 
-      // figure out which subdividing point is the furthest off the line segment
+      // Figure out which subdividing point
+      // is the furthest off the line segment.
       $max_dist = 0;
       for ($i = $segment[0] + 1; $i < $segment[1]; $i++) {
         $dist = legacy_gmap_polyutil_point_line_dist($points[$i], $points[$segment[0]], $points[$segment[1]]);
@@ -128,8 +151,10 @@ function legacy_gmap_polyutil_dp_encode($points) {
         }
       }
 
-      // if the subdividing point found above is significantly off the line
-      // segment then we want to simplify further. Add sub-segments to the stack.
+      // If the subdividing point found above
+      // is significantly off the line
+      // segment then we want to simplify further.
+      // Add sub-segments to the stack.
       if ($max_dist > GMAP_DP_EPSILON) {
         $weights[$max_i] = $max_dist;
         array_push($stack, array($segment[0], $max_i));
@@ -148,24 +173,28 @@ function legacy_gmap_polyutil_dp_encode($points) {
 
 /**
  * Simplify a set of points and generate an "Encoded Polyline" for Google Maps.
- * @param $points
+ *
+ * @param array $points
  *   An array of coordinate pairs as latitude, longitude.
- * @return
+ *
+ * @return array
  *   An array containing the point and zoom information necessary to display
- *   encoded polylines on Google Maps: 'points', 'levels', 'numLevels', and 'zoomFactor'.
+ *   encoded polylines on Google Maps:
+ *   'points', 'levels', 'numLevels', and 'zoomFactor'.
  */
 function legacy_gmap_polyutil_polyline($points) {
   $points_encoded = '';
   $levels_encoded = '';
 
-  // simplify the line
+  // Simplify the line.
   $weights = legacy_gmap_polyutil_dp_encode($points);
 
   $previous = array(0, 0);
   foreach ($points as $i => $p) {
     if (isset($weights[$i])) {
-      // encode each simplified point
-      // the deltas between points are encoded, rather than the point values themselves
+      // Encode each simplified point
+      // the deltas between points are encoded,
+      // rather than the point values themselves.
       $points_encoded .= legacy_gmap_polyutil_encode_latlon($p[0] - $previous[0]) . legacy_gmap_polyutil_encode_latlon($p[1] - $previous[1]);
       $levels_encoded .= legacy_gmap_polyutil_encode_levels(legacy__gmap_polyutil_get_zoom_level($weights[$i]));
       $previous = $p;
@@ -194,8 +223,10 @@ function legacy__gmap_polyutil_zoom_levels() {
 }
 
 /**
- * Place points in levels based on their "weight" -- a value derived from
- * distance calculations in the simplification algorithm, gmap_polyutil_dp_encode().
+ * Place points in levels based on their "weight".
+ *
+ * A value derived from distance calculations in the
+ * simplification algorithm, gmap_polyutil_dp_encode().
  */
 function legacy__gmap_polyutil_get_zoom_level($weight) {
   $levels = legacy__gmap_polyutil_zoom_levels();

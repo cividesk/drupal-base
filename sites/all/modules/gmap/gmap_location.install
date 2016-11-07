@@ -6,13 +6,6 @@
  */
 
 /**
- * Implementation of hook_install().
- */
-function gmap_location_install() {
-  // Gmap no longer provides the location table.
-}
-
-/**
  * Implementation of hook_uninstall().
  */
 function gmap_location_uninstall() {
@@ -30,15 +23,23 @@ function gmap_location_uninstall() {
   }
 }
 
+/**
+ * Update 1.
+ */
 function gmap_location_update_1() {
   drupal_set_message(t('WARNING! Obsolete gmap_location update #@num was triggered! Please verify the schema of your location table manually!', array('@num' => '1')));
 }
 
+/**
+ * Update 2.
+ */
 function gmap_location_update_2() {
   drupal_set_message(t('WARNING! Obsolete gmap_location update #@num was triggered! Please verify the schema of your location table manually!', array('@num' => '2')));
 }
 
-// 5.x-0.8 first update
+/**
+ * Gmap 5.x-0.8 first update.
+ */
 function gmap_location_update_5080() {
   // Convert role markers to single variable.
   $result = db_query("SELECT name FROM {variable} WHERE name LIKE 'gmap_role_map_marker_%%'");
@@ -63,8 +64,8 @@ function gmap_location_update_5080() {
   variable_set('gmap_node_markers', $markers);
 
   // User location setting functionality is moving to location.module.
-  //variable_del('gmap_user');
-  //variable_del('gmap_user_profile_category');
+  // variable_del('gmap_user');
+  // variable_del('gmap_user_profile_category');
 
   // gmap_user_map is a single variable now.
   $temp = array(
@@ -88,7 +89,7 @@ function gmap_location_update_5080() {
 }
 
 /**
- * 5.x-1.0 update 1.
+ * Gmap 5.x-1.0 update 1.
  */
 function gmap_location_update_5100() {
   $ret = array();
@@ -116,7 +117,7 @@ function gmap_location_update_5100() {
   if ($var) {
     $var = trim($var);
     switch ($var) {
-      // Record of all historical defaults
+      // Record of all historical defaults.
       case '[gmap |id=block0 |zoom=10 |width=100% |height=200px |control=Small |type=Map]':
       case '[gmap |id=block0|zoom=10 |width=100% |height=200px |control=Small |type=Map]':
       case '[gmap |zoom=10 |width=100% |height=200px |control=Small |type=Map]':
@@ -125,6 +126,7 @@ function gmap_location_update_5100() {
         // Fall back to new default.
         variable_del('gmap_location_block_macro');
         break;
+
       default:
         // User has customized macro.
         drupal_set_message(t('You have customized the @type macro. Be advised that the new default macro is %macro. Please check your macro on the <a href="@url">block configuration page</a>.', array(
@@ -140,7 +142,7 @@ function gmap_location_update_5100() {
   if ($var) {
     $var = trim($var);
     switch ($var) {
-      // Record of all historical defaults
+      // Record of all historical defaults.
       case '[gmap |zoom=10 |width=100% |height=200px |control=Small |type=Map |behavior=+notype]':
       case '[gmap |id=block0|zoom=10 |width=100% |height=200px |control=Small |type=Map]':
       case '[gmap |id=block0 |zoom=10 |width=100% |height=200px |control=Small |type=Map]':
@@ -148,6 +150,7 @@ function gmap_location_update_5100() {
         // Fall back to new default.
         variable_del('gmap_location_author_block_macro');
         break;
+
       default:
         // User has customized macro.
         drupal_set_message(t('You have customized the @type macro. Be advised that the new default macro is %macro. Please check your macro on the <a href="@url">block configuration page</a>.', array(
@@ -162,7 +165,9 @@ function gmap_location_update_5100() {
 }
 
 /**
- * 5.x-1.0 update 2. (Post-release)
+ * Gmap 5.x-1.0 update 2.
+ *
+ * (Post-release)
  * Delete unneeded variable.
  */
 function gmap_location_update_5101() {
@@ -172,7 +177,9 @@ function gmap_location_update_5101() {
 }
 
 /**
- * 5.x-1.1 update 1 (Still haven't diverged for 6.x.)
+ * Gmap 5.x-1.1 update 1.
+ *
+ * (Still haven't diverged for 6.x.)
  * #392130: Use better permission names.
  */
 function gmap_location_update_5102() {

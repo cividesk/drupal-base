@@ -7,12 +7,13 @@
 
 Drupal.gmap.addHandler('gmap', function (elem) {
     var obj = this;
+    var infowindow;
 
     if (obj.vars.styleBubble && obj.vars.styleBubble.enableBubbleStyle == 1) {
-        var infowindow = new InfoBubble(obj.vars.styleBubble.styleBubbleOptions);
+        infowindow = new InfoBubble(obj.vars.styleBubble.styleBubbleOptions);
     }
     else {
-        var infowindow = new google.maps.InfoWindow();
+        infowindow = new google.maps.InfoWindow();
     }
 
     obj.bind('init', function () {
@@ -54,7 +55,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
     // Default marker actions.
     obj.bind('clickmarker', function (marker) {
         // Close infowindow if open to prevent multiple windows
-        if (infowindow != null) {
+        if (infowindow !== null) {
             infowindow.close();
         }
         if (marker.text) {
@@ -78,16 +79,20 @@ Drupal.gmap.addHandler('gmap', function (elem) {
             var el = document.createElement('div');
             // Clone the matched object, run through the clone, stripping off ids, and move the clone into the container.
             jQuery(iwq).eq(iwo).clone(false).find('*').removeAttr('id').appendTo(jQuery(el));
-            marker.setContent(el);
+            infowindow.setContent(el);
             infowindow.open(obj.map, marker.marker);
         }
         // AJAX content
         else if (marker.rmt) {
+            //Immediately add a 'loading' bubble on click while we wait for AJAX
+            infowindow.setContent('<div class="gmap-marker-rmt-loading throbber">Loading</div>');
+            infowindow.open(obj.map, marker.marker);
+
             var uri = marker.rmt;
             // If there was a callback, prefix that.
             // (If there wasn't, marker.rmt was the FULL path.)
             if (obj.vars.rmtcallback) {
-                uri = Drupal.settings.basePath + Drupal.settings.pathPrefix + obj.vars.rmtcallback + '/' + marker.rmt;
+                uri = Drupal.absoluteUrl(obj.vars.rmtcallback + '/' + marker.rmt);
             }
             // @Bevan: I think it makes more sense to do it in this order.
             // @Bevan: I don't like your choice of variable btw, seems to me like
@@ -124,7 +129,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
                 obj.map.fitBounds(obj.bounds);
                 var listener = google.maps.event.addListener(obj.map, "idle", function () {
                     if (obj.vars.maxzoom) {
-                        var maxzoom = parseInt(obj.vars.maxzoom)
+                        var maxzoom = parseInt(obj.vars.maxzoom);
                         if (obj.map.getZoom() > maxzoom) obj.map.setZoom(maxzoom);
                         google.maps.event.removeListener(listener);
                     }

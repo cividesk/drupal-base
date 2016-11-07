@@ -13,18 +13,20 @@
 /**
  * Change the way gmap works.
  *
- * @param $op
+ * @param string $op
  *   The operation to be performed. Possible values:
  *   - "macro": Add macro behaviors (Not well documented yet...)
  *   - "pre_theme_map": A map is being themed. This is a good place to
  *     drupal_add_js() any additional files needed to run the map in question.
  *   - "macro_multiple": Add macro behaviors (Not well documented yet...)
  *   - "behaviors": Define behavior flags used in your code.
- * @param $map
+ *
+ * @param array $map
  *   For the "pre_theme_map" operation, the map being themed. Not used in
  *   other operations.
- * @return
- *  This varies depending on the operation.
+ *
+ * @return array
+ *   This varies depending on the operation.
  *  - "macro": An associative array. The keys are the macro keys, the values
  *    are an array of flags for that macro key:
  *      "multiple": This key can appear multiple times in a macro.
@@ -42,19 +44,18 @@
 function hook_gmap($op, &$map) {
   switch ($op) {
     case 'macro':
-      return array(
-        'feed' => array(
-          'multiple' => TRUE,
-        ),
-      );
+      return array('feed' => array('multiple' => TRUE));
+
     case 'pre_theme_map':
       $path = drupal_get_path('module', 'gmap') . '/js/';
       if (is_array($map['feed'])) {
         drupal_add_js($path . 'markerloader_georss.js');
       }
       break;
+
     case 'macro_multiple':
       return array('feed');
+
     case 'behaviors':
       return array(
         'nomousezoom' => array(

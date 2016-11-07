@@ -58,6 +58,8 @@
 
                 case 'polygon':
                     fillstyle = true;
+                    break;
+
                 case 'line':
                     if (shape.points) {
                         $.each(shape.points, function (i, n) {
@@ -71,6 +73,8 @@
 
                 case 'encoded_polygon':
                     fillstyle = true;
+                    break;
+
                 case 'encoded_line':
                     pa = ( google.maps.geometry ) ? google.maps.geometry.encoding.decodePath(shape.path) : []; // this trinary prevents errors if the google.maps gemoetry library wasn't loaded
                     break;
@@ -98,7 +102,7 @@
                     style[4] = style[4] / 100; // fill opacity
                 }
 
-                if (shape.type == 'encoded_line') {
+                if (shape.type == 'encoded_line' || shape.type == 'line') {
                     shape.color = style[0];
                     shape.weight = style[1];
                     shape.opacity = style[2];

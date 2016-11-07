@@ -24,8 +24,8 @@ Drupal.gmap.addHandler('gmap', function (elem) {
             Drupal.settings.gmap_markermanager.maxZoom = parseInt(Drupal.settings.gmap_markermanager.maxZoom);
         }
         Drupal.settings.gmap_markermanager = jQuery.extend({}, {
-            maxZoom: parseInt(Drupal.settings.gmap_markermanager["maxZoom"]),
-            gridSize: parseInt(Drupal.settings.gmap_markermanager["gridSize"])
+            maxZoom: parseInt(Drupal.settings.gmap_markermanager.maxZoom),
+            gridSize: parseInt(Drupal.settings.gmap_markermanager.gridSize)
         }, Drupal.settings.gmap_markermanager);
         obj.mc = new MarkerClusterer(obj.map, [], Drupal.settings.gmap_markermanager);
     });

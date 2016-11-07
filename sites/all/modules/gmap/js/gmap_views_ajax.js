@@ -14,8 +14,8 @@
             var gmap = {};
 
             for (i = 0; i < response.settings.length; i++) {
-                if (typeof(response.settings[i]['gmap']) == 'object') {
-                    gmap = response.settings[i]['gmap'];
+                if (typeof(response.settings[i].gmap) == 'object') {
+                    gmap = response.settings[i].gmap;
                 }
             }
 

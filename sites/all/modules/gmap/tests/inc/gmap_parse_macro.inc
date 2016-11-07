@@ -7,11 +7,12 @@
 
 namespace tests\inc;
 
-include_once(drupal_get_path('module', 'gmap') . '/tests/inc/gmap_defaults.inc');
-include_once(drupal_get_path('module', 'gmap') . '/tests/inc/gmap_polyutil.inc');
+include_once drupal_get_path('module', 'gmap') . '/tests/inc/gmap_defaults.inc';
+include_once drupal_get_path('module', 'gmap') . '/tests/inc/gmap_polyutil.inc';
 
 /**
  * Parse a macro style definition.
+ *
  * Example: #111111/1/100/#111111/1
  * @internal
  */
@@ -22,7 +23,8 @@ function legacy__gmap_parse_style($style) {
   }
   $styles = explode('/', $style);
 
-  // @@@ Todo: Fix up old xmaps stuff. Possibly detect by looking for array length 7?
+  // @@@ Todo: Fix up old xmaps stuff.
+  // Possibly detect by looking for array length 7?
 
   // Strip off # signs, they get added by code.
   if (isset($styles[0]) && substr($styles[0], 0, 1) == '#') {
@@ -50,9 +52,9 @@ function legacy__gmap_parse_style($style) {
  * @internal
  */
 function legacy__gmap_str2coord($str) {
-  // Explode along + axis
+  // Explode along + axis.
   $arr = explode('+', $str);
-  // Explode along , axis
+  // Explode along , axis.
   $points = array();
   foreach ($arr as $pt) {
     list($lat, $lon) = explode(',', $pt);
@@ -61,13 +63,16 @@ function legacy__gmap_str2coord($str) {
   return $points;
 }
 
+/**
+ * {@inheritdoc}
+ */
 function legacy__gmap_parse_macro($instring, $ver = 2) {
   // Get a list of keys that are "multiple."
   $m = array();
   $multiple = legacy_gmap_module_invoke('macro_multiple', $m);
   $def = legacy_gmap_defaults();
 
-  // Remove leading and trailing tags
+  // Remove leading and trailing tags.
   if (substr(trim($instring), -1) == ']') {
     $instring = substr(trim($instring), 0, -1);
   }
@@ -75,7 +80,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     $instring = substr($instring, 6);
   }
 
-  // Chop the macro into an array
+  // Chop the macro into an array.
   $temp = explode('|', $instring);
   $m = array();
   foreach ($temp as $row) {
@@ -84,7 +89,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
       $k = trim(substr($row, 0, $offset));
       $r = trim(substr($row, $offset + 1));
       if (in_array($k, $multiple)) {
-        // Things that can appear multiple times
+        // Things that can appear multiple times.
         if (!isset($m[$k])) {
           $m[$k] = array();
         }
@@ -96,7 +101,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     }
   }
 
-  // Synonyms
+  // Synonyms.
   if (isset($m['type'])) {
     $m['maptype'] = $m['type'];
     unset($m['type']);
@@ -109,7 +114,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
   if (isset($m['feed']) && is_array($m['feed'])) {
     foreach ($m['feed'] as $k => $v) {
       $temp = explode('::', $v);
-      // Normalize url
+      // Normalize url.
       if (substr($temp[1], 0, 1) == '/') {
         $temp[1] = substr($temp[1], 1);
       }
@@ -130,7 +135,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     unset($m['style']);
   }
 
-  // Merge points and markers
+  // Merge points and markers.
   if (!isset($m['points']) || !is_array($m['points'])) {
     $m['points'] = array();
   }
@@ -141,7 +146,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
   unset($m['points']);
   unset($m['markers']);
 
-  // all shapes in 1 array
+  // All shapes in 1 array.
   if (isset($m['circle']) && is_array($m['circle'])) {
     foreach ($m['circle'] as $shape) {
       $s = array('type' => 'circle');
@@ -239,9 +244,9 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     $value = array($m['polygon']);
   }
 
-  // Version 1 -> 2 conversion
+  // Version 1 -> 2 conversion.
   if ($ver == 1) {
-    // Zoom is flipped
+    // Zoom is flipped.
     if (isset($m['zoom'])) {
       $m['zoom'] = 18 - $m['zoom'];
       if ($m['zoom'] < 1) {
@@ -250,13 +255,13 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     }
   }
 
-  // Center -> latitude and longitude
+  // Center -> latitude and longitude.
   if (isset($m['center']) && $m['center']) {
     list($m['latitude'], $m['longitude']) = explode(',', $m['center']);
     unset($m['center']);
   }
 
-  // Behavior
+  // Behavior.
   if (isset($m['behaviour'])) {
     $m['behavior'] = $m['behaviour'];
     unset($m['behaviour']);
@@ -273,7 +278,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     // Fix a very old bug regarding behavior flags:
     // It was always supposed to defer to the site default behaviors for every
     // flag not defined by the macro, but this was just plain not happening.
-    // This is a backwards-incompatible change
+    // This is a backwards-incompatible change.
     $m['behavior'] = $def['behavior'];
     foreach ($m['behavior-temp'] as $v) {
       $m['behavior'][substr($v, 1)] = (substr($v, 0, 1) == '+') ? TRUE : FALSE;
@@ -281,7 +286,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     unset($m['behavior-temp']);
   }
 
-  // tcontrol now is mtc.
+  // Tcontrol now is mtc.
   if (isset($m['tcontrol'])) {
     if (strtolower(trim($m['tcontrol'])) == 'on') {
       $m['mtc'] = 'standard';
@@ -292,7 +297,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     unset($m['tcontrol']);
   }
 
-  // notype also controls mtc.
+  // Notype also controls mtc.
   if (isset($m['behavior']['notype'])) {
     if ($m['behavior']['notype']) {
       $m['mtc'] = 'none';
@@ -300,7 +305,7 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     unset($m['behavior']['notype']);
   }
 
-  // Stuff that was converted to behavior flags
+  // Stuff that was converted to behavior flags.
 
   // Scale control.
   if (isset($m['scontrol'])) {
@@ -324,14 +329,15 @@ function legacy__gmap_parse_macro($instring, $ver = 2) {
     unset($m['drag']);
   }
 
-  // Markers fixup
+  // Markers fixup.
   foreach ($m['markers-temp'] as $t) {
     unset($markername);
     // Named?
-    if (strpos($t, '::')) { // Single : gets handled below.
+    // Single : gets handled below.
+    if (strpos($t, '::')) {
       list($markername, $t) = explode('::', $t, 2);
     }
-    // Break down into points
+    // Break down into points.
     $points = explode('+', $t);
     $offset = -1;
     foreach ($points as $point) {

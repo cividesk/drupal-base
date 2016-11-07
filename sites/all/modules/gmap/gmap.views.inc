@@ -5,6 +5,15 @@
  * GMap Views support.
  */
 
+/**
+ * Gmap Extended View.
+ *
+ * @param array $vars
+ *   Array of used variables.
+ *
+ * @return mixed
+ *   Rendered HTML.
+ */
 function theme_gmap_views_view_gmapextended(&$vars) {
   $markers = array();
   foreach ($vars['markers'] as $offset => $data) {
@@ -13,10 +22,10 @@ function theme_gmap_views_view_gmapextended(&$vars) {
     }
     $markers[] = $data;
   }
-  // @@@ Move to preprocess
+  // @@@ Move to preprocess.
   $map = gmap_parse_macro($vars['options']['macro']);
 
-  // If center lon/lat are not empty they are used to center map
+  // If center lon/lat are not empty they are used to center map.
   if (!empty($vars['center']['longitude']) && !empty($vars['center']['latitude'])) {
     $map['longitude'] = $vars['center']['longitude'];
     $map['latitude'] = $vars['center']['latitude'];
@@ -33,10 +42,17 @@ function theme_gmap_views_view_gmapextended(&$vars) {
   return drupal_render($elem);
 }
 
+/**
+ * Implements template_preprocess_views_view_VIEW_NAME().
+ *
+ * @param array $vars
+ *   Array of used variables.
+ */
 function template_preprocess_gmap_views_view_gmapextended(&$vars) {
   $view = $vars['view'];
 
-  // We need the raw data for this grouping, which is passed in as $vars['rows'].
+  // We need the raw data for this
+  // grouping, which is passed in as $vars['rows'].
   // However, the template also needs to use for the rendered fields.  We
   // therefore swap the raw data out to a new variable and reset $vars['rows']
   // so that it can get rebuilt.
@@ -52,7 +68,7 @@ function template_preprocess_gmap_views_view_gmapextended(&$vars) {
   if ($view->style_plugin->options['center_on_proximityfilter'] && $view->style_plugin->options['datasource'] == 'location' && module_exists('location')) {
     $vars['center'] = location_views_proximity_get_reference_location($view, array(
         'origin' => 'tied',
-        'relationship' => $view->style_plugin->options['center_on_proximityfilter_rel']
+        'relationship' => $view->style_plugin->options['center_on_proximityfilter_rel'],
       )
     );
   }
@@ -68,28 +84,30 @@ function template_preprocess_gmap_views_view_gmapextended(&$vars) {
       if (!isset($markers[$i][$purpose])) {
         $markers[$i][$purpose] = '';
       }
-      $markers[$i][$purpose] .= $row[$field];
+      if ($purpose){
+        $markers[$i][$purpose] .= $row[$field];
+      }
     }
   }
   /*
   foreach ($options['field_purposes'] as $field => $purpose) {
-    foreach ($renders as $i => $row) {
-      if (!isset($markers[$i][$purpose])) {
-        $markers[$i][$purpose] = '';
-      }
-      $markers[$i][$purpose] .= $row[$field];
-    }
+  foreach ($renders as $i => $row) {
+  if (!isset($markers[$i][$purpose])) {
+  $markers[$i][$purpose] = '';
+  }
+  $markers[$i][$purpose] .= $row[$field];
+  }
   }
   */
 
   foreach ($markers as $offset => $marker) {
-    // Set up 'opts' array to make tooltips work
+    // Set up 'opts' array to make tooltips work.
     $markers[$offset]['opts'] = array('title' => isset($marker['title']) ? decode_entities($marker['title']) : NULL);
 
     switch ($options['clickmode']) {
       case 'render':
         $markers[$offset]['text'] = $vars['result'][$offset];
-      //fallthrough
+        // Fallthrough.
       case 'text':
         unset ($markers[$offset]['link']);
         unset ($markers[$offset]['rmt']);
@@ -112,7 +130,7 @@ function template_preprocess_gmap_views_view_gmapextended(&$vars) {
         break;
 
       case 'iwq':
-        // @@@ May need to parse entities for stuff like .foo>.bar
+        // @@@ May need to parse entities for stuff like .foo>.bar.
         $markers[$offset]['iwq'] = trim($markers[$offset]['iwq']);
         $markers[$offset]['iwo'] = (int) trim($markers[$offset]['iwo']);
         if (empty($markers[$offset]['iwq']) || $markers[$offset]['iwq'] == $options['iwq']) {
@@ -129,13 +147,13 @@ function template_preprocess_gmap_views_view_gmapextended(&$vars) {
   // @@@ add rest of handling
   /*
   if ($options['markers'] == 'static') {
-    foreach ($markers as $offset => $marker) {
-      $markers[$offset]['markername'] = $options['markertype'];
-    }
+  foreach ($markers as $offset => $marker) {
+  $markers[$offset]['markername'] = $options['markertype'];
+  }
   }
   */
 
-  // Marker cleanup
+  // Marker cleanup.
   foreach ($markers as $offset => $marker) {
     $marker['latitude'] = isset($marker['latitude']) ? (float) $marker['latitude'] : NULL;
     $marker['longitude'] = isset($marker['longitude']) ? (float) $marker['longitude'] : NULL;

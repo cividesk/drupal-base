@@ -5,9 +5,9 @@ core = 7.x
 dependencies[] = gmap
 files[] = gmap_macro_builder.module
 
-; Information added by Drupal.org packaging script on 2014-03-10
-version = "7.x-2.9"
+; Information added by Drupal.org packaging script on 2016-03-11
+version = "7.x-2.11"
 core = "7.x"
 project = "gmap"
-datestamp = "1394461106"
+datestamp = "1457698170"
 

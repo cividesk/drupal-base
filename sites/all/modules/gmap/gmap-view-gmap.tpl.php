@@ -1,6 +1,7 @@
 <?php
 /**
- * @file gmap-view-gmap.tpl.php
+ * @file
+ * gmap-view-gmap.tpl.php
  * Default view template for a gmap.
  *
  * - $map contains a themed map object.

@@ -61,26 +61,16 @@ Clusterer.origFunctions = {};
 Clusterer.origFunctions.PopUp = Clusterer.PopUp;
 Clusterer.PopUp = function (cluster) {
     var mode = Drupal.settings.gmap_markermanager.popup_mode;
+
     if (mode === 'orig') {
         return Clusterer.origFunctions.PopUp(cluster);
     }
     else if (mode === 'zoom') {
-        var bounds = new GLatLngBounds();
-        for (var k in cluster.markers)
-            bounds.extend(cluster.markers[k].getPoint());
 
-        var sw = bounds.getSouthWest();
-        var ne = bounds.getNorthEast();
-        var rect = [
-            sw,
-            new GLatLng(sw.lat(), ne.lng()),
-            ne,
-            new GLatLng(ne.lat(), sw.lng()),
-            sw
-        ];
-
-        var center = bounds.getCenter();
-        var zoom = cluster.clusterer.map.getBoundsZoomLevel(bounds);
-        cluster.clusterer.map.setCenter(new GLatLng(+center.lat(), +center.lng()), +zoom);
+        var bounds = new google.maps.LatLngBounds();
+        for (var k in cluster.markers) {
+            bounds.extend(cluster.markers[k].getPosition());
+        }
+        cluster.clusterer.map.fitBounds(bounds);
     }
 };

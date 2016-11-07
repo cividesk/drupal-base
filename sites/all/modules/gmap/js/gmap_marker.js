@@ -15,7 +15,7 @@ Drupal.gmap.addHandler('gmap', function (elem) {
     var obj = this;
 
     obj.bind('addmarker', function (marker) {
-        if (!obj.map.markers) obj.map.markers = new Array();
+        if (!obj.map.markers) obj.map.markers = [];
         marker.marker.setMap(obj.map);
         obj.map.markers.push(marker.marker);
     });

@@ -2,7 +2,7 @@
 
 /**
  * @file
- *  GMap install/uninstall routines.
+ * GMap install/uninstall routines.
  */
 
 /**
@@ -24,6 +24,7 @@ function gmap_uninstall() {
 
 /**
  * Updates from 5.x-1.0alpha1 to 5.x-1.0.
+ *
  * Do some tidying up of the settings.
  */
 function gmap_update_5000() {
@@ -34,7 +35,7 @@ function gmap_update_5000() {
   // Add the previous implicit baselayers back in.
   if (!isset($d['baselayers'])) {
     $d['baselayers'] = array(
-      // Default map type
+      // Default map type.
       'maptype' => isset($d['maptype']) ? $d['maptype'] : 'Map',
       'Map' => 1,
       'Satellite' => 1,
@@ -57,7 +58,7 @@ function gmap_update_5000() {
     }
   }
 
-  // notype is gone, mtc is more generic.
+  // Notype is gone, mtc is more generic.
   if (isset($d['behavior']['notype'])) {
     unset($d['behavior']['notype']);
   }
@@ -68,6 +69,7 @@ function gmap_update_5000() {
 
 /**
  * Post 5.x-1.0beta2 update 1.
+ *
  * We added a menu callback, force a rebuild.
  */
 function gmap_update_5001() {
@@ -107,7 +109,25 @@ function gmap_update_5003() {
 function gmap_update_7000() {
   $ret = array();
   variable_del('gmap_private_markerfile');
-  
+
   return $ret;
 }
 */
+
+/**
+ * Mini-update -- update gmap markerfiles variable to an array if it is not
+ * already.
+ */
+function gmap_update_7201() {
+ $markerdirs = variable_get('gmap_markerfiles', array(drupal_get_path('module', 'gmap') . '/markers'));
+ if (!is_array($markerdirs)) {
+   variable_set('gmap_markerfiles', array($markerdirs));
+  }
+}
+
+/**
+ * Gmap:deleted gmap_marker_custom_dir since it is not using.
+ */
+function gmap_update_7202() {
+  variable_del('gmap_marker_custom_dir');
+}

@@ -209,7 +209,13 @@ class wf_crm_admin_help {
 
   static function reg_options_show_past_events() {
     print '<p>' .
-      t('Upcoming events will always be shown. To also display events that have ended, choose an option for how far in the past to search.') .
+      t('To also display events that have ended, choose an option for how far in the past to search.') .
+      '</p>';
+  }
+
+  static function reg_options_show_future_events() {
+    print '<p>' .
+      t('To also display events in the future, choose an option for how far in the future to search.') .
       '</p>';
   }
 
@@ -379,7 +385,7 @@ class wf_crm_admin_help {
 
   static function contact_component_hide_fields() {
     print '<p>' .
-      t('When an existing contact is selected, which fields should the user be allowed to edit and which should be hidden?') .
+      t('When an existing contact is selected or prepopulated, which fields should the user not be allowed to edit?') .
       '</p><p>' .
       t("This is useful for preventing changes to existing data.") .
       '</p>';

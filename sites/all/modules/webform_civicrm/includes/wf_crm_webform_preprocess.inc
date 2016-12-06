@@ -54,12 +54,12 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
     }
     // Early return if the form (or page) was already submitted
     if (wf_crm_aval($this->form_state, 'triggering_element:#id') == 'edit-previous'
-      || (empty($this->form_state['rebuild']) && !empty($this->form_state['storage']))) {
+      || (empty($this->form_state['rebuild']) && !empty($this->form_state['storage']) && $this->form['#submission']->is_draft != '1' )) {
       $this->fillForm($this->form['submitted']);
       return;
     }
     // If this is an edit op, use the original IDs and return
-    if (isset($this->form['#submission']->sid)) {
+    if (isset($this->form['#submission']->sid) && $this->form['#submission']->is_draft != '1') {
       if (isset($this->form['#submission']->civicrm)) {
         $this->form_state['civicrm']['ent'] = $this->form['#submission']->civicrm;
         foreach ($this->form_state['civicrm']['ent']['contact'] as $c => $contact) {
@@ -183,12 +183,22 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         'scope' => 'footer',
       );
       $page_id = $this->data['contribution'][1]['contribution'][1]['contribution_page_id'];
-      $contributionCallbackQuery = array('reset' => 1, 'id' => $page_id, 'qfKey' => $this->getQfKey(), 'snippet' => 4);
+      if (version_compare($this->civicrm_version, '4.7', '>=')) {
+        $currency = $this->contribution_page['currency'];
+        $contributionCallbackQuery = array('currency' => $currency, 'snippet' => 4);
+        $contributionCallbackUrl = 'civicrm/payment/form';
+        $js_vars['processor_id_key'] = 'processor_id';
+      }
+      else {
+        $contributionCallbackQuery = array('reset' => 1, 'id' => $page_id, 'qfKey' => $this->getQfKey(), 'snippet' => 4);
+        $contributionCallbackUrl = 'civicrm/contribute/transact';
+        $js_vars['processor_id_key'] = 'type';
+      }
       if (!empty($this->data['contribution'][1]['contribution'][1]['is_test'])) {
         // RM: This is needed in order for CiviCRM to know that this is a 'test' (i.e. 'preview' action in CiviCRM) transaction - otherwise, CiviCRM defaults to 'live' and returns the payment form with public key for the live payment processor!
         $contributionCallbackQuery['action'] = CRM_Core_Action::description(CRM_Core_Action::PREVIEW);
       }
-      $js_vars['contributionCallback'] = url('civicrm/contribute/transact', array('query' => $contributionCallbackQuery, 'alias' => TRUE));
+      $js_vars['contributionCallback'] = url($contributionCallbackUrl, array('query' => $contributionCallbackQuery, 'alias' => TRUE));
       // Add payment processor - note we have to search in 2 places because $this->loadMultipageData hasn't been run. Maybe it should be?
       $fid = 'civicrm_1_contribution_1_contribution_payment_processor_id';
       if (!empty($this->enabled[$fid])) {
@@ -550,11 +560,7 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
             }
             // Contact image & custom file fields
             if ($dt == 'File') {
-                $entity = $ent;
-                if ($table == 'relationship'){
-                    $entity = 'relationship'; // temporary fix
-                }
-                $fileInfo = $this->getFileInfo($name, $val, $entity, $n);
+              $fileInfo = $this->getFileInfo($name, $val, $ent, $n);
               if ($fileInfo && in_array($element['#type'], array('file', 'managed_file'))) {
                 $fileInfo = json_encode($fileInfo);
                 $js = "jQuery(function() {wfCivi.initFileField('$eid', $fileInfo)});";

@@ -10,11 +10,10 @@
 /**
  * The versions of CiviCRM and WebForm. Min is >=.  Max is <. FALSE = no MAX
  */
-define('WEBFROM_CIVICRM_CIVICRM_VERSION_MIN', '4.4');
-define('WEBFROM_CIVICRM_CIVICRM_VERSION_MAX', FALSE);
+define('WEBFORM_CIVICRM_CIVICRM_VERSION_MIN', '4.4');
+define('WEBFORM_CIVICRM_CIVICRM_VERSION_MAX', FALSE);
 
-define('WEBFROM_CIVICRM_WEBFORM_VERSION', '4');
-
+define('WEBFORM_CIVICRM_WEBFORM_VERSION', '4.12');
 
 /**
  * Implements hook_menu().
@@ -432,11 +431,10 @@ function webform_civicrm_preprocess_webform_components_form(&$vars) {
 /**
  * Implements hook_civicrm_alterPaymentProcessorParams().
  *
- * This hook is problematic and pretty much only works for paypal.
+ * Legacy handling for paypal.
  * We use it to override the return url so that the user gets redirected to the right place from paypal.
  *
- * TODO: A better solution would be for the payment processor to accept this as a param
- * so we don't have to come in with this hook to override it later.
+ * Remove when dropping support for CiviCRM 4.6 and below.
  */
 function webform_civicrm_civicrm_alterPaymentProcessorParams($paymentObj, $rawParams, &$cookedParams) {
   if (!empty($rawParams['webform_redirect_cancel']) && !empty($rawParams['webform_redirect_success'])
@@ -542,21 +540,16 @@ function _webform_civicrm_status() {
   $status = array();
   $status['webform_civicrm'] = FALSE;
 
-  $path = drupal_get_path('module', 'civicrm') . '/civicrm.info';
-  $civicrm = drupal_parse_info_file($path);
+  $civicrm = system_get_info('module', 'civicrm');
+  $webform = system_get_info('module', 'webform');
 
-  $path = drupal_get_path('module', 'webform') . '/webform.info';
-  $webform = drupal_parse_info_file($path);
-  //strip the 7.x- from version so version_compare works
-  $webform['version'] = str_replace('7.x-', '', $webform['version']);
-
-  if (version_compare($civicrm['version'], WEBFROM_CIVICRM_CIVICRM_VERSION_MIN, '>=') &&
-    version_compare($webform['version'], WEBFROM_CIVICRM_WEBFORM_VERSION, '>=')) {
+  if (version_compare($civicrm['version'], WEBFORM_CIVICRM_CIVICRM_VERSION_MIN, '>=') &&
+    version_compare($webform['version'], WEBFORM_CIVICRM_WEBFORM_VERSION, '>=')) {
     $status['webform_civicrm'] = TRUE;
   }
 
-  // if there is a max version of CiviCRM supported, check it too
-  if (WEBFROM_CIVICRM_CIVICRM_VERSION_MAX && version_compare($civicrm['version'], WEBFROM_CIVICRM_CIVICRM_VERSION_MAX, '>=')) {
+  // If there is a max version of CiviCRM supported, check it too.
+  if (WEBFORM_CIVICRM_CIVICRM_VERSION_MAX && version_compare($civicrm['version'], WEBFORM_CIVICRM_CIVICRM_VERSION_MAX, '>=')) {
     $status['webform_civicrm'] = FALSE;
   }
 

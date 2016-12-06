@@ -184,11 +184,17 @@ function wf_crm_get_events($reg_options, $context) {
   $ret = array();
   $format = wf_crm_aval($reg_options, 'title_display', 'title');
   $sql = "SELECT id, title, start_date, end_date, event_type_id FROM civicrm_event WHERE is_template = 0 AND is_active = 1";
-  // 0 means only current events, 1 means show all past events, other values are relative date strings
-  $date = wf_crm_aval($reg_options, 'show_past_events', 'now');
-  if ($date != '1') {
-    $date = date('Y-m-d H:i:s', strtotime($date));
-    $sql .= " AND (end_date >= '$date' OR end_date IS NULL)";
+  // 'now' means only current events, 1 means show all past events, other values are relative date strings
+  $date_past = wf_crm_aval($reg_options, 'show_past_events', 'now');
+  if ($date_past != '1') {
+    $date_past = date('Y-m-d H:i:s', strtotime($date_past));
+    $sql .= " AND (end_date >= '$date_past' OR end_date IS NULL)";
+  }
+  // 'now' means only past events, 1 means show all future events, other values are relative date strings
+  $date_future = wf_crm_aval($reg_options, 'show_future_events', '1');
+  if ($date_future != '1') {
+    $date_future = date('Y-m-d H:i:s', strtotime($date_future));
+    $sql .= " AND (end_date <= '$date_future' OR end_date IS NULL)";
   }
   if (is_numeric($reg_options['event_type'])) {
     $sql .= ' AND event_type_id = ' . $reg_options['event_type'];
@@ -544,7 +550,7 @@ function wf_crm_get_fields($var = 'fields') {
       'contact_type' => 'organization',
     );
     // Individual names
-    if (empty($config->civiVersion) || substr($config->civiVersion, 0, 3) == '4.4') {
+    if (version_compare(CRM_Utils_System::version(), '4.5', '<')) {
       // This setting doesn't exist prior to 4.5 so hard-code it.
       $enabled_names = array('Prefix', 'Suffix', 'First Name', 'Middle Name', 'Last Name');
     }
@@ -1354,15 +1360,19 @@ function wf_crm_user_cid($id = NULL, $type = 'uf') {
   // Lookup current domain for multisite support
   static $domain = 0;
   if (!$domain) {
-    $domain = wf_civicrm_api('domain', 'get', array('current_domain' => 1, 'return.id' => 1));
+    $domain = wf_civicrm_api('domain', 'get', array('current_domain' => 1, 'return' => 'id'));
     $domain = wf_crm_aval($domain, 'id', 1);
   }
-  $result = wf_civicrm_api('uf_match', 'getsingle', array($type . '_id' => $id, 'domain_id' => $domain));
-  if (empty($result['is_error'])) {
+  $result = wf_crm_apivalues('uf_match', 'get', array(
+    $type . '_id' => $id,
+    'domain_id' => $domain,
+    'sequential' => 1,
+  ));
+  if ($result) {
     if (!empty($user_lookup)) {
-      $current_user = $result['contact_id'];
+      $current_user = $result[0]['contact_id'];
     }
-    return $type == 'uf' ? $result['contact_id'] : $result['uf_id'];
+    return $type == 'uf' ? $result[0]['contact_id'] : $result[0]['uf_id'];
   }
 }
 
@@ -1485,6 +1495,9 @@ function wf_civicrm_api($entity, $operation, $params) {
     $bt = debug_backtrace();
     $n = $bt[0]['function'] == 'wf_civicrm_api' ? 1 : 0;
     $file = explode('/', $bt[$n]['file']);
+    if (isset($params['credit_card_number'])) {
+      $params['credit_card_number'] = "xxxxxxxxxxxx".substr($params['credit_card_number'], -4);
+    }
     watchdog('webform_civicrm',
       'The CiviCRM "%function" API returned the error: "%msg" when called by function "!fn" on line !line of !file with parameters: "!params"',
       array(
@@ -1521,7 +1534,7 @@ function wf_crm_apivalues($entity, $operation, $params = array(), $value = NULL)
   }
   $params += array('options' => array());
   // Work around the api's default limit of 25
-  $params['options'] += array('limit' => 9999);
+  $params['options'] += array('limit' => 0);
   $ret = wf_crm_aval(wf_civicrm_api($entity, $operation, $params), 'values', array());
   if ($value) {
     foreach ($ret as &$values) {
@@ -1578,6 +1591,21 @@ function wf_crm_required_contact_fields($contact_type) {
  */
 function wf_crm_location_fields() {
   return array('address', 'email', 'phone', 'website', 'im');
+}
+
+/**
+ * These are the address fields this module supports
+ *
+ * @return array
+ */
+function wf_crm_address_fields() {
+  return array(
+    'street_address',
+    'city',
+    'state_province_id',
+    'country_id',
+    'postal_code'
+  );
 }
 
 /**

@@ -3,13 +3,13 @@ description = A powerful, flexible, user-friendly form builder for CiviCRM.
 core = 7.x
 package = CiviCRM
 dependencies[] = civicrm (>=4.4)
-dependencies[] = webform (>=4.0)
+dependencies[] = webform (>=4.12)
 dependencies[] = libraries
 dependencies[] = options_element
 
-; Information added by Drupal.org packaging script on 2015-10-13
-version = "7.x-4.13"
+; Information added by Drupal.org packaging script on 2016-08-04
+version = "7.x-4.16"
 core = "7.x"
 project = "webform_civicrm"
-datestamp = "1444698842"
+datestamp = "1470329069"
 

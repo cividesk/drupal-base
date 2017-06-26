@@ -45,7 +45,7 @@ if(typeof(CKEDITOR) !== 'undefined') {
 
             { name : 'Marker: Yellow'	, element : 'span', styles : { 'background-color' : 'Yellow' } },
             { name : 'Marker: Green'	, element : 'span', styles : { 'background-color' : 'Lime' } },
-
+            { name : 'Subheader Aqua'   , element : 'span', styles : {'font-size':'1.3em','color':'#00539B','font-weight':'bold'}},
             { name : 'Big'				, element : 'big' },
             { name : 'Small'			, element : 'small' },
             { name : 'Typewriter'		, element : 'tt' },

@@ -63,7 +63,7 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
     if (wf_crm_aval($this->form_state, 'triggering_element:#id') == 'edit-previous'
       || (empty($this->form_state['rebuild']) && !empty($this->form_state['storage']) && empty($this->form['#submission']->is_draft))
       // When resuming from a draft
-      || (!empty($this->form['#submission']->is_draft) && empty($this->form_state['input']))
+      // || (!empty($this->form['#submission']->is_draft) && empty($this->form_state['input']))
     ) {
       $this->fillForm($this->form['submitted']);
       return;

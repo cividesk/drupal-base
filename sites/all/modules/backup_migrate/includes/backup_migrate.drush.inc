@@ -15,9 +15,9 @@ function backup_migrate_drush_command() {
     'description' => dt('Backup the site\'s database with Backup and Migrate.'),
     'aliases' => array('bb'),
     'examples' => array(
-      'drush bam-backup' => 'Backup the default databse to the manual backup directory using the default settings.', 
-      'drush bam-backup db scheduled mysettings' => 'Backup the database to the scheduled directory using a settings profile called "mysettings"', 
-      'drush bam-backup files' => 'Backup the files directory to the manual directory using the default settings. The Backup and Migrate Files module is required for files backups.', 
+      'drush bam-backup' => 'Backup the default database to the manual backup directory using the default settings.',
+      'drush bam-backup db scheduled mysettings' => 'Backup the database to the scheduled directory using a settings profile called "mysettings"',
+      'drush bam-backup files' => 'Backup the files directory to the manual directory using the default settings.',
     ),
     'arguments' => array(
       'source'        => "Optional. The id of the source (usually a database) to backup. Use 'drush bam-sources' to get a list of sources. Defaults to 'db'",
@@ -136,7 +136,7 @@ function backup_migrate_drush_restore($source_id = '', $destination_id = '', $fi
   }
   _backup_migrate_message('Starting restore...');
   $settings = array('source_id' => $source_id);
-  backup_migrate_perform_restore($destination_id, $file_id);
+  backup_migrate_perform_restore($destination_id, $file_id, $settings);
 }
 
 /**
@@ -264,8 +264,14 @@ function backup_migrate_drush_destination_files($destination_id = NULL) {
  * Send a message to the drush log.
  */
 function _backup_migrate_message_drush($message, $replace, $type) {
-  // Use drush_log to display to the user.
-  drush_log(strip_tags(dt($message, $replace)), str_replace('status', 'notice', $type));
+  // If this is an error use drush_set_error to notify the end user and set the exit status
+  if ($type == 'error') {
+    drush_set_error(strip_tags(dt($message, $replace)));
+  }
+  else {
+    // Use drush_log to display to the user.
+    drush_log(strip_tags(dt($message, $replace)), str_replace('status', 'notice', $type));
+  }
   // Watchdog log the message as well for admins.
   _backup_migrate_message_log($message, $replace, $type);
 }

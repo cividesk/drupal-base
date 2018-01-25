@@ -50,7 +50,7 @@ function backup_migrate_nodesquirrel_get_activate_help_text() {
  * Get a helper link to activate a site and create a tree.
  */
 function backup_migrate_nodesquirrel_get_activate_link() {
-  $activate_link = l('nodesquirrel.com/activate', variable_get('nodesquirrel_activate_url', 'http://manage.nodesquirrel.com/activate'), array('query' => array('url' => url('', array('absolute' => TRUE)), 'email' => variable_get('site_mail', ''), 'configure' => url($_GET['q'], array('absolute' => TRUE)))));
+  $activate_link = l('nodesquirrel.com/activate', variable_get('nodesquirrel_activate_url', 'https://manage.nodesquirrel.com/activate'), array('query' => array('url' => url('', array('absolute' => TRUE)), 'email' => variable_get('site_mail', ''), 'configure' => url($_GET['q'], array('absolute' => TRUE)))));
   return $activate_link;
 }
 
@@ -108,6 +108,13 @@ function backup_migrate_nodesquirrel_credentials_settings_form($key = '', $statu
     $form['nodesquirrel_credentials']['secret_key_help'] = backup_migrate_nodesquirrel_get_activate_help_text();
   }
 
+  $form['nodesquirrel_credentials']['nodesquirrel_failover'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Connection failover by disabling SSL certification validation'),
+    '#description' => t("If normal connections to NodeSquirrel fail due incompatibility between this server's PHP installation and the destination server, use this option to disable validating the destination's SSL certificate.<br />Note: <em>this has security implications</em> and should be the last option taken; it probably would be safer to update the server's PHP."),
+    '#default_value' => variable_get('nodesquirrel_failover', FALSE),
+  );
+
   return $form;
 }
 
@@ -124,7 +131,7 @@ function backup_migrate_nodesquirrel_info_form() {
 
   $form['nodesquirrel_info']['intro'] = array(
     '#type' => 'markup',
-    '#markup' => t('<p>NodeSquirrel is the cloud backup service for Drupal built by the maintainers of Backup and Migrate. It is secure, reliable and affordable.</p><p>NodeSquirrel is a paid service and profits help support Backup and Migrate.</p><p>Find out more at !nodesquirrel</p>', array('!nodesquirrel' => l('nodesquirrel.com', 'http://www.nodesquirrel.com'), '!add' => l(t('add other offsite destinations'), BACKUP_MIGRATE_MENU_PATH . '/destination/list/add'), '!bam' => l(t('Backup and Migrate project page'), 'http://drupal.org/project/backup_migrate'))),
+    '#markup' => t('<p>NodeSquirrel is the cloud backup service built by the maintainers of Backup and Migrate.</p></p>NodeSquirrel is now free for all Drupal sites, courtesy of Pantheon.</p><p>Create your free account at !signup</p>', array('!nodesquirrel' => l('nodesquirrel.com', 'http://www.nodesquirrel.com'), '!signup' => backup_migrate_nodesquirrel_get_activate_link())),
     );
   return $form;
 }
@@ -166,21 +173,19 @@ function backup_migrate_nodesquirrel_status_form($key, $destination, $status) {
         '#markup' => check_plain($status['plan_name'])
       );
 
-      if (isset($status['plan_id']) && strpos($status['plan_id'], 'trial') !== FALSE) {
-        if (isset($status['lifetime_backups']) && isset($status['lifetime_backups_used'])) {
-          $remains = $status['lifetime_backups'] - $status['lifetime_backups_used'];
-          $remains = $remains > 0 ? $remains : t('none');
-          $form['nodesquirrel_status']['plan_name']['#markup'] .= ' ' . t('(@remains remaining of @backups backup trial)', array('@backups' => $status['lifetime_backups'], '@remains' => $remains));
-        }
+      if (!empty($status['lifetime_backups']) && isset($status['lifetime_backups_used'])) {
+        $remains = $status['lifetime_backups'] - $status['lifetime_backups_used'];
+        $remains = $remains > 0 ? $remains : t('none');
+        $form['nodesquirrel_status']['plan_name']['#markup'] .= ' ' . t('(@remains remaining of @backups backup trial)', array('@backups' => $status['lifetime_backups'], '@remains' => $remains));
+      }
 
-        if (isset($status['lifespan']) && isset($status['age']) && $status['lifespan'] > 0) {
-          $remains = ceil(($status['lifespan'] - $status['age']) / 86400);
-          if ($remains <= 0) {
-            $form['nodesquirrel_status']['plan_name']['#markup'] .= ' ' . t('(Your !span day trial has expired.)', array('!span' => ceil($status['lifespan'] / 86400)));
-          }
-          else {
-            $form['nodesquirrel_status']['plan_name']['#markup'] .= ' ' . format_plural($remains, '(1 day remaining)', '(!span days remaining)', array('!span' => ceil($remains)));
-          }
+      if (!empty($status['lifespan']) && isset($status['age']) && $status['lifespan'] > 0) {
+        $remains = ceil(($status['lifespan'] - $status['age']) / 86400);
+        if ($remains <= 0) {
+          $form['nodesquirrel_status']['plan_name']['#markup'] .= ' ' . t('(Your !span day trial has expired.)', array('!span' => ceil($status['lifespan'] / 86400)));
+        }
+        else {
+          $form['nodesquirrel_status']['plan_name']['#markup'] .= ' ' . format_plural($remains, '(1 day remaining)', '(!span days remaining)', array('!span' => ceil($remains)));
         }
       }
 
@@ -250,6 +255,7 @@ function backup_migrate_nodesquirrel_schedule_settings_form($destination, $statu
     'period' => empty($schedule) ? variable_get('nodesquirrel_schedule', 60*60*24) : $schedule->get('period'),
     'enabled' => empty($schedule) ? variable_get('nodesquirrel_schedule_enabled', TRUE) : $schedule->get('enabled'),
     'source_id' => empty($schedule) ? variable_get('nodesquirrel_schedule_source_id', 'db') : $schedule->get('source_id'),
+    'keep' => empty($schedule) ? variable_get('nodesquirrel_schedule_keep', BACKUP_MIGRATE_SMART_DELETE) : $schedule->get('keep'),    
   );
 
   $form['nodesquirrel_schedule'][$key]['nodesquirrel_schedule_enabled'] = array(
@@ -278,6 +284,12 @@ function backup_migrate_nodesquirrel_schedule_settings_form($destination, $statu
     '#title' => t('Schedule Frequency'),
     '#options' => $options,
     '#default_value' => $period,
+  );
+  $form['nodesquirrel_schedule'][$key]['settings']['nodesquirrel_schedule_keep'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Automatically delete old backups'),
+    '#return_value' => $defaults['keep'] == BACKUP_MIGRATE_KEEP_ALL ? BACKUP_MIGRATE_SMART_DELETE : $defaults['keep'],
+    '#default_value' => $defaults['keep'],
   );
   return $form;
 }
@@ -315,15 +327,8 @@ class backup_migrate_destination_nodesquirrel extends backup_migrate_destination
   var $cache_files = TRUE;
   // Don't generate a metadata file as NodeSquirrel can save metadata natively.
   var $save_metadata = FALSE;
-
-  /**
-   * Get the destination name. Provide a default.
-   */
-  function get_name() {
-    if (empty($this->name)) {
-      return t('NodeSquirrel');
-    }
-    return $this->name;
+  function __construct($params = array()) {
+    parent::__construct($params + array('name' => t('NodeSquirrel')));
   }
 
   /**
@@ -424,9 +429,7 @@ class backup_migrate_destination_nodesquirrel extends backup_migrate_destination
 
           if ($confirm['success']) {
             // Set a message with a link to the manage console.
-            $url = variable_get('nodesquirrel_manage_url', 'http://manage.nodesquirrel.com') . '/backups/' . $this->_get_destination();
-            _backup_migrate_message('Your backup has been saved to your NodeSquirrel account. View it at !account', array('!account' => l($url, $url)));
-
+            _backup_migrate_message('Your backup has been saved to your NodeSquirrel account. View it at !account', array('!account' => backup_migrate_nodesquirrel_get_manage_link($this)));
             return $file;
           }
           else {
@@ -642,7 +645,7 @@ class backup_migrate_destination_nodesquirrel extends backup_migrate_destination
   }
 
   function add_scheme($url) {
-    return 'http://' . $url;
+    return 'https://' . $url;
   }
 
   /**
@@ -669,7 +672,24 @@ class backup_migrate_destination_nodesquirrel extends backup_migrate_destination
   
           $url = $this->add_scheme($url);
 
-          $out = xmlrpc($url, array($method => $args));
+          $options = array();
+          // Optionally disable SSL certification validation. This may be
+          // necessary if the server's SSL certificates are out of date because
+          // and might be incompatible with PHP 5.6's OpenSSL implementation.
+          // @see http://php.net/manual/en/migration56.openssl.php
+          // @see http://php.net/manual/en/context.ssl.php#context.ssl.verify-peer
+          if (variable_get('nodesquirrel_failover', FALSE)) {
+            $opts = array(
+              'ssl' => array(
+                'verify_peer' => FALSE,
+              ),
+            );
+            $options = array(
+              'context' => stream_context_create($opts),
+            );
+          }
+
+          $out = xmlrpc($url, array($method => $args), $options);
   
           // Check for errors.
           $err = xmlrpc_error();
@@ -795,6 +815,9 @@ class backup_migrate_destination_nodesquirrel extends backup_migrate_destination
       return $result;
     }
   
+    // Avoid some "undefined variable" errors.
+    $errno = $errstr = NULL;
+
     switch ($uri['scheme']) {
       case 'http':
       case 'feed':
@@ -803,17 +826,33 @@ class backup_migrate_destination_nodesquirrel extends backup_migrate_destination
         $fp = @fsockopen($uri['host'], $port, $errno, $errstr, 15);
         break;
       case 'https':
-        // Note: Only works for PHP 4.3 compiled with OpenSSL.
+        // Note: Only works for PHP 4.3+ compiled with OpenSSL.
         $port = isset($uri['port']) ? $uri['port'] : 443;
         $host = $uri['host'] . ($port != 443 ? ':'. $port : '');
         $fp = @fsockopen('ssl://'. $uri['host'], $port, $errno, $errstr, 20);
+
+        // If fsockopen() doesn't work, try again after disabling SSL.
+        // Optionally disable SSL certification validation. This may be
+        // necessary if the server's SSL certificates are out of date and/or
+        // might be incompatible with PHP 5.6's OpenSSL implementation.
+        // @see http://php.net/manual/en/migration56.openssl.php
+        // @see http://php.net/manual/en/context.ssl.php#context.ssl.verify-peer
+        if (!$fp && variable_get('nodesquirrel_failover', FALSE)) {
+          $opts = array(
+            'ssl' => array(
+              'verify_peer' => FALSE,
+            ),
+          );
+          $context = stream_context_create($opts);
+          $fp = stream_socket_client('ssl://'. $uri['host'] . ':' . $port, $errno, $errstr, 20, STREAM_CLIENT_CONNECT, $context);
+        }
         break;
       default:
         $result->error = 'invalid schema '. $uri['scheme'];
         $result->code = -1003;
         return $result;
     }
-  
+
     // Make sure the socket opened properly.
     if (!$fp) {
       // When a network error occurs, we use a negative number so it does not

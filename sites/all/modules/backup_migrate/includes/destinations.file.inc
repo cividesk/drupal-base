@@ -32,13 +32,17 @@ class backup_migrate_destination_files extends backup_migrate_destination {
   function _save_file($file, $settings) {
     if ($this->confirm_destination() && $dir = $this->get_location()) {
       $filepath = rtrim($dir, "/") ."/". $file->filename();
+
+      // Allow files to be overwritten by the filesystem.
+      $replace_method = $settings->append_timestamp == 1 ? FILE_EXISTS_REPLACE : FILE_EXISTS_RENAME;
+
       // Copy the file if there are multiple destinations.
       if (count($settings->get_destinations()) > 1) {
-        file_unmanaged_copy($file->filepath(), $filepath);
+        file_unmanaged_copy($file->filepath(), $filepath, $replace_method);
       }
       // Otherwise we can move it and save a delete.
       else {
-        file_unmanaged_move($file->filepath(), $filepath);
+        file_unmanaged_move($file->filepath(), $filepath, $replace_method);
       }
 
       // chmod, chown and chgrp the file if needed.
@@ -201,7 +205,7 @@ class backup_migrate_destination_files extends backup_migrate_destination {
   function check_dir($directory) {
     if (!file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
       // Unable to create destination directory.
-      _backup_migrate_message("Unable to create or write to the save directory '%directory'. Please check the file permissions that directory and try again.", array('%directory' => $directory), "error");
+      _backup_migrate_message("Unable to create or write to the save directory '%directory'. Please check the file permissions of that directory and try again.", array('%directory' => $directory), "error");
       return FALSE;
     }
 

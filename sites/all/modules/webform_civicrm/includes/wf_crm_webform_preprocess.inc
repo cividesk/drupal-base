@@ -63,7 +63,7 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
     if (wf_crm_aval($this->form_state, 'triggering_element:#id') == 'edit-previous'
       || (empty($this->form_state['rebuild']) && !empty($this->form_state['storage']) && empty($this->form['#submission']->is_draft))
       // When resuming from a draft
-      // || (!empty($this->form['#submission']->is_draft) && empty($this->form_state['input']))
+      || (!empty($this->form['#submission']->is_draft) && empty($this->form_state['input']))
     ) {
       $this->fillForm($this->form['submitted']);
       return;
@@ -471,6 +471,16 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
           if (isset($this->info[$ent][$c][$table][$n][$name])
             && !(isset($component['cid']) && isset($submitted[$component['cid']]))) {
             $val = $this->info[$ent][$c][$table][$n][$name];
+
+            if ($ent === 'contact') {
+              $createModeKey = 'civicrm_' . $c . '_contact_' . $n . '_' . $table . '_createmode';
+              $multivaluesCreateMode = isset($this->data['config']['create_mode'][$createModeKey]) ? (int) $this->data['config']['create_mode'][$createModeKey] : NULL;
+
+              // Set empty value for field with 'Create only' mode.
+              if ($multivaluesCreateMode === self::MULTIVALUE_FIELDSET_MODE_CREATE_ONLY) {
+                $val = wf_crm_aval($element, '#default_value', '');
+              }
+            }
             if (($element['#type'] == 'checkboxes' || !empty($element['#multiple'])) && !is_array($val)) {
               $val = wf_crm_explode_multivalue_str($val);
             }
@@ -488,6 +498,10 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
               else {
                 $val = array_pop($val);
               }
+            }
+            if ($component['type'] == 'autocomplete' && is_string($val) && strlen($val)) {
+              $options = wf_crm_field_options($component, '', $this->data);
+              $val = wf_crm_aval($options, $val);
             }
             // Contact image & custom file fields
             if ($dt == 'File') {
@@ -549,7 +563,7 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         $taxSettings = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::CONTRIBUTE_PREFERENCES_NAME, 'contribution_invoice_settings');
 
         if ($taxSettings['tax_display_settings'] != 'Do_not_show') {
-          $item['label'] .= ' (' . t('includes !rate @tax', array('!rate' => $this->tax_rate . '%', '@tax' => $taxSettings['tax_term'])) . ')';
+          $item['label'] .= ' (' . t('includes !rate @tax', array('!rate' => (float)$this->tax_rate . '%', '@tax' => $taxSettings['tax_term'])) . ')';
         }
 
         // Add calculation for financial type that contains tax

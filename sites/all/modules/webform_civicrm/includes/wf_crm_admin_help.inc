@@ -20,7 +20,7 @@ class wf_crm_admin_help {
       '<li>' . t('Enable fields for one or more contacts.') . '</li>' .
       '<li>' . t('Arrange and configure those fields on the "Webform" tab.') . '</li>' .
       '<li>' . t('Click the blue help icons to learn more.') . '</li>' .
-      '<li><a href="http://wiki.civicrm.org/confluence/display/CRMDOC/Webform+CiviCRM+Integration" target="_blank">' . t('Read the instructions.') . '</a></li>' .
+      '<li><a href="https://docs.civicrm.org/sysadmin/en/latest/integration/drupal/webform/" target="_blank">' . t('Read the instructions.') . '</a></li>' .
       '</ul>';
   }
 
@@ -52,7 +52,13 @@ class wf_crm_admin_help {
 
   public static function contact_contact_id() {
     print '<p>' .
-      t('This hidden field can be used to as a token to generate links, for example to include an email link back to this form to update their info.') .
+      t('This read-only field can be used to as a token to generate links, for example to include an email link back to this form to update their info.') .
+      '</p>';
+  }
+
+  public static function contact_user_id() {
+    print '<p>' .
+      t("This read-only field will load the contact's drupal user id. Works even for anonymous users following a checksum.") .
       '</p>';
   }
 
@@ -79,6 +85,30 @@ class wf_crm_admin_help {
       '<li>' . t('Or select "- None -" to always create a new contact.') . '</li>' .
       '</ul><p>' .
       t('Note: Matching rules are only used if the contact is not already selected via "Existing Contact" field.') .
+      '</p>';
+  }
+
+  public static function address_street_address() {
+    print '<p>' .
+      t('Single field for whole address line: Street Name, Number and Number Suffix. Don\'t use together with the separate fields.') .
+      '</p>';
+  }
+
+  public static function address_street_name() {
+    print '<p>' .
+      t('Use together with Street Number and Street Number Suffix as an alternative for Street Address.') .
+      '</p>';
+  }
+
+  public static function address_street_number() {
+    print '<p>' .
+      t('Use together with Street Name and Street Number Suffix as an alternative for Street Address.') .
+      '</p>';
+  }
+
+  public static function address_street_unit() {
+    print '<p>' .
+      t('Use together with Street Name and Street Number as an alternative for Street Address.') .
       '</p>';
   }
 
@@ -417,6 +447,14 @@ class wf_crm_admin_help {
     print '<p>' .
       t("This will add all fields from this custom group, and automatically update the webform whenever this group's custom fields are added, edited, or deleted in CiviCRM.") .
       '</p>';
+  }
+
+  public static function multivalue_fieldset_create_mode() {
+      print '<p>' .
+        t("Create/ Edit Mode (Default): Pre-populate the existing entry (if any) in order to allow user modifying it. If there isn't any existing entry, any value entered into the fieldset will be created as a new entry.") .
+        '<br><br>' .
+        t("Create Only Mode: Any value entered into the fieldset will be created as a new entry without overwriting any existing record.") .
+        '</p>';
   }
 
   /**

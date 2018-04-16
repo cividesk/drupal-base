@@ -34,6 +34,7 @@ function _webform_defaults_civicrm_contact() {
       'hide_fields' => array(),
       'hide_method' => 'hide',
       'no_hide_blank' => FALSE,
+      'submit_disabled' => FALSE,
       'attributes' => array(),
       'private' => FALSE,
       'default' => '',
@@ -178,6 +179,13 @@ function _webform_edit_civicrm_contact($component) {
     '#default_value' => $component['extra']['no_hide_blank'],
     '#parents' => array('extra', 'no_hide_blank'),
   );
+  $form['field_handling']['submit_disabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Submit disabled field value(s)"),
+    '#description' => t('Store disabled field value(s) in webform submissions.'),
+    '#default_value' => $component['extra']['submit_disabled'],
+    '#parents' => array('extra', 'submit_disabled'),
+  );
   $form['validation']['unique'] = array(
     '#type' => 'checkbox',
     '#title' => t('Unique'),
@@ -309,8 +317,13 @@ function _webform_edit_civicrm_contact($component) {
   return $form;
 }
 
+/**
+ * Adds help to the form
+ *
+ * @param $form
+ */
 function wf_crm_contact_component_form_help(&$form) {
-  foreach(element_children($form) as $element) {
+  foreach (element_children($form) as $element) {
     if (is_array($form[$element])) {
       wf_crm_contact_component_form_help($form[$element]);
       if (method_exists('wf_crm_admin_help', "contact_component_$element")) {
@@ -355,10 +368,11 @@ function _webform_render_civicrm_contact($component, $value = NULL, $filter = TR
       unset($other_fields[$h]);
     }
   }
+  $defaults = json_encode(wf_crm_get_defaults($node));
   $ajax = $other_fields ? 'true' : 'false';
   $callback_path = '"' . url('webform-civicrm/js/' . $node->nid . '-' . $component['cid'], array('alias' => TRUE)) . '"';
   $onChange = "field.change(function() {
-                  wfCivi.existingSelect($c, {$node->nid}, $callback_path, toHide, '$hide_method', $no_hide_blank, \$(this).val(), $ajax);
+                  wfCivi.existingSelect($c, {$node->nid}, $callback_path, toHide, '$hide_method', $no_hide_blank, \$(this).val(), $ajax, $defaults);
                 });";
 
   // Render component based on type
@@ -950,7 +964,7 @@ function wf_crm_tokeninput_path() {
   static $ret;
   if (!$ret) {
     // First see if the library is installed in Drupal
-    $path = libraries_get_path('tokeninput');
+    $path = function_exists('libraries_get_path') ? libraries_get_path('tokeninput') : NULL;
     if ($path && is_file(DRUPAL_ROOT . '/' . $path . '/src/jquery.tokeninput.js')) {
       $ret = $path . '/src/jquery.tokeninput.js';
     }
@@ -972,4 +986,22 @@ function wf_crm_contact_component_required($element, &$form_state) {
   if (empty($element['#value'])) {
     form_error($element, t('!name field is required.', array('!name' => $element['#title'])));
   }
+}
+
+/**
+ * Returns a default value for a component.
+ *
+ * @param object $node
+ *
+ * @return array
+ */
+function wf_crm_get_defaults($node) {
+  $defaults = array();
+  foreach ($node->webform['components'] as $comp) {
+    if (!empty($comp['value'])) {
+      $key = str_replace('_', '-', $comp['form_key']);
+      $defaults[$key] = $comp['type'] == 'date' ? date('Y-m-d', strtotime($comp['value'])) : $comp['value'];
+    }
+  }
+  return $defaults;
 }

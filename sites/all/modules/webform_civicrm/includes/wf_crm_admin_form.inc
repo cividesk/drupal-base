@@ -744,6 +744,7 @@ class wf_crm_admin_form {
       '#prefix' => '<div id="event-reg-options-wrapper"><div class="web-civi-checkbox-set">',
       '#parents' => array('reg_options', 'event_type'),
       '#tree' => TRUE,
+      '#multiple' => TRUE,
     );
     $this->form['participant']['show_past_events'] = array(
       '#type' => 'select',

@@ -202,9 +202,12 @@ function wf_crm_get_events($reg_options, $context) {
     $date_future = date('Y-m-d H:i:s', strtotime($date_future));
     $sql .= " AND (end_date <= '$date_future' OR end_date IS NULL)";
   }
-  if (is_numeric($reg_options['event_type'])) {
-    $sql .= ' AND event_type_id = ' . $reg_options['event_type'];
+
+  if (isset($reg_options['event_type']) && $reg_options['event_type'] != 'any') {
+    $event_ids = implode(',', $reg_options['event_type']);
+    $sql .= ' AND event_type_id IN (' . $event_ids . ')';
   }
+  
   $sql .= ' ORDER BY start_date ' . ($context == 'config_form' ? 'DESC' : '');
   $dao = CRM_Core_DAO::executeQuery($sql);
   while ($dao->fetch()) {

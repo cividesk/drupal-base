@@ -102,6 +102,14 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         $this->findExistingGrants();
       }
     }
+    // Check if contact reload required: for case roles
+    for ($c = 1; $c <= count($this->data['contact']); ++$c) {
+      if (isset($this->ent['contact'][$c]['reload'])) {
+        $existing_component = $this->getComponent("civicrm_{$c}_contact_1_contact_existing");
+        $this->ent['contact'][$c]['id'] = 0;
+        $this->findContact($existing_component);
+      }
+    }
     // Form alterations for unknown contacts
     if (empty($this->ent['contact'][1]['id'])) {
       if ($this->settings['prefix_unknown']) {
@@ -446,6 +454,11 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
           if (!empty($field['data_type'])) {
             $dt = $element['#civicrm_data_type'] = $field['data_type'];
           }
+          $element['#attributes']['data-civicrm-field-key'] = $eid;
+          // For contribution line-items
+          if ($table == 'contribution' && in_array($name, array('line_total', 'total_amount'))) {
+            $element['#attributes']['class'][] = 'contribution-line-item';
+          }
           // Provide live options from the Civi DB
           if (!empty($component['extra']['civicrm_live_options']) && isset($element['#options'])) {
             $params = array('extra' => wf_crm_aval($field, 'extra', array())) + $component;
@@ -522,7 +535,7 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
             }
           }
           if ($name == 'existing') {
-            wf_crm_fill_contact_value($this->node, $component, $element);
+            wf_crm_fill_contact_value($this->node, $component, $element, $this->ent);
           }
           if ($name == 'contribution_page_id') {
             $element['#prefix'] = $this->displayLineItems();
@@ -555,30 +568,38 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         );
       }
     }
+
+    $taxRates = CRM_Core_PseudoConstant::getTaxRates();
     foreach ($this->line_items as $item) {
       $total += $item['line_total'];
-      // tax integration
-      if (!is_null($this->tax_rate)) {
+      // Sales Tax integration
+      if (!empty($item['financial_type_id'])) {
+        $itemTaxRate = isset($taxRates[$item['financial_type_id']]) ? $taxRates[$item['financial_type_id']] : NULL;
+      }
+      else {
+        $itemTaxRate = $this->tax_rate;
+      }
+
+      if (!is_null($itemTaxRate)) {
         // Change the line item label to display the tax rate it contains
         $taxSettings = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::CONTRIBUTE_PREFERENCES_NAME, 'contribution_invoice_settings');
 
-        if ($taxSettings['tax_display_settings'] != 'Do_not_show') {
-          $item['label'] .= ' (' . t('includes !rate @tax', array('!rate' => (float)$this->tax_rate . '%', '@tax' => $taxSettings['tax_term'])) . ')';
+        if (($taxSettings['tax_display_settings'] != 'Do_not_show') && ($itemTaxRate !== 0)) {
+          $item['label'] .= ' (' . t('includes !rate @tax', array('!rate' => (float)$itemTaxRate . '%', '@tax' => $taxSettings['tax_term'])) . ')';
         }
 
         // Add calculation for financial type that contains tax
-        $item['tax_amount'] = ($this->tax_rate / 100) * $item['line_total'];
-        $total += $item['line_total'] * (($this->tax_rate / 100) + 1);
+        $item['tax_amount'] = ($itemTaxRate / 100) * $item['line_total'];
+        $total += $item['tax_amount'];
         $label = $item['label'] . ($item['qty'] > 1 ? " ({$item['qty']})" : '');
         $rows[] = array(
-          'data' => array($label, CRM_Utils_Money::format($item['line_total'] * (($this->tax_rate / 100) + 1))),
+          'data' => array($label, CRM_Utils_Money::format($item['line_total'] + $item['tax_amount'])),
           'class' => array($item['element'], 'line-item'),
-          'data-amount' => $item['line_total'] * (($this->tax_rate / 100) + 1),
-          'data-tax' => (int)$this->tax_rate,
+          'data-amount' => $item['line_total'] + $item['tax_amount'],
+          'data-tax' => (float)$itemTaxRate,
         );
-      }else{
-        $total += $item['line_total'];
-
+      }
+      else {
         $label = $item['label'] . ($item['qty'] > 1 ? " ({$item['qty']})" : '');
         $rows[] = array(
           'data' => array($label, CRM_Utils_Money::format($item['line_total'])),
@@ -600,6 +621,29 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
       'attributes' => array('id' => "wf-crm-billing-items"),
     ));
   }
+
+ /**
+   * Function to load default contact (cid1) if default loading is set to case_roles
+   */
+  function findCaseClientForDefaultContact($c) {
+    // Support legacy url param
+    if (empty($_GET["case1"]) && !empty($_GET["caseid"])) {
+      $_GET["case1"] = $_GET["caseid"];
+    }
+    for ($n = 1; $n <= $this->data['case']['number_of_case']; ++$n) {
+      if (isset($_GET["case$n"]) && wf_crm_is_positive($_GET["case$n"])) {
+        $id = $_GET["case$n"];
+        $item = wf_civicrm_api('case', 'getsingle', array('id' => $id));
+        $clients = (array)wf_crm_aval($item, 'client_id');
+        if (count($clients) > 0) {
+          $caseClient = reset($clients);
+          $this->ent['contact'][$c]['id'] = $caseClient;
+          return;
+        }
+      }
+    }
+  }
+
 
   /**
    * Find case ids based on url input or "existing case" settings

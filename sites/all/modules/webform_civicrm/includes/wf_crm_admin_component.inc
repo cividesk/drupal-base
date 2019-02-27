@@ -542,7 +542,14 @@ class wf_crm_admin_component {
               $row['data'][3]['data'] = t('Auto - From Filters');
             }
             elseif ($component['extra']['default'] == 'relationship' && $component['extra']['default_relationship']) {
-              $row['data'][3]['data'] = t('Relationship to !contact', array('!contact' => wf_crm_contact_label(1, $data)));
+              $relationship_labels = array();
+              $relationship_types = wf_crm_get_relationship_types();
+              foreach ($component['extra']['default_relationship'] as $default_relationship) {
+                list($rid, $rtype) = explode('_', $default_relationship);
+                $label_type = $rtype == 'b' ? 'b_a' : 'a_b';
+                $relationship_labels[] = $relationship_types[$rid]["label_$label_type"] . ' ' . wf_crm_contact_label($component['extra']['default_relationship_to'], $data);
+              }
+              $row['data'][3]['data'] = implode(' ' . ts('or') . ' ', $relationship_labels);
             }
           }
           elseif (isset($component['value']) && strlen($component['value']) && ($field['type'] == 'select' || !empty($field['expose_list']))) {
@@ -691,7 +698,11 @@ function wf_crm_cs_validate($form, &$form_state) {
 function wf_crm_money_validate($form, &$form_state) {
   $vals = $form_state['values'];
   if (!empty($vals['value']) && !is_numeric($vals['value']) && $vals['type'] != 'formula') {
-    form_error($form['value'], t('This is a CiviCRM currency field. @field must be a number.', array('@field' => $form['value']['#title'])));
+    //Check if default value is a token string.
+    $isTokenString = token_replace($vals['value'], array(), array('clear' => true));
+    if (!empty($isTokenString)) {
+      form_error($form['value'], t('This is a CiviCRM currency field. @field must be a number.', array('@field' => $form['value']['#title'])));
+    }
   }
   foreach (array('items', 'options') as $field) {
     if (!empty($vals['extra'][$field])) {

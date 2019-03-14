@@ -252,7 +252,7 @@ function theme_video_flv($variables) {
       if (!empty($item['thumbnailfile'])) {
         $config['image'] = $item['thumbnailfile']->url;
       }
-      $themed_output = theme('jw_player', array('file_object' => $video, 'options' => $options, 'config' => $config, 'preset' => $preset));
+      $themed_output = theme('jw_player', array('file_object' => $video, 'options' => $options, 'config' => $config, 'preset' => $preset, 'sources' => json_decode(json_encode($item['playablefiles']), TRUE)));
       break;
 
     default:

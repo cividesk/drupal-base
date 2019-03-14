@@ -15,6 +15,12 @@ class TranscoderAbstractionFactoryZencoder extends TranscoderAbstractionFactory 
   public function __construct() {
     parent::__construct();
     $this->options['api_key'] = variable_get('video_zencoder_api_key');
+    $grouping = variable_get('video_zencoder_grouping');
+
+    if (!empty($grouping)) {
+      $this->options['grouping'] = $grouping;
+    }
+
     $this->postbackurl = variable_get('video_zencoder_postback', url('postback/jobs', array('absolute' => TRUE)));
     $this->outputdestination = variable_get('video_zencoder_output_destination');
   }
@@ -22,6 +28,16 @@ class TranscoderAbstractionFactoryZencoder extends TranscoderAbstractionFactory 
   public function setInput(array $file) {
     parent::setInput($file);
     $this->options['input'] = file_create_url($this->settings['input']['uri']);
+
+    $username = variable_get('video_zencoder_http_username', FALSE);
+    $password = variable_get('video_zencoder_http_password', FALSE);
+
+    if ($username && $password) {
+      $url = url('video/transfer/' . $this->settings['input']['fid'], array('absolute' => TRUE));
+      $scheme = file_uri_scheme($url);
+      $target = file_uri_target($url);
+      $this->options['input'] = $scheme . '://' . $username . ':' . $password . '@' . $target;
+    }
 
     if (variable_get('video_zencoder_testing_mode', FALSE)) {
       $this->options['input'] = variable_get('video_zencoder_test_file_path', 'http://example.com/video.mp4');
@@ -332,6 +348,24 @@ class TranscoderAbstractionFactoryZencoder extends TranscoderAbstractionFactory 
         '#default_value' => variable_get('video_zencoder_api_key', NULL),
         '#description' => t('Leave empty and submit the form to start creating a new Zencoder account.')
       );
+       $form['zencoder_info']['video_zencoder_grouping'] = array(
+         '#type' => 'textfield',
+         '#title' => t('Zencoder grouping'),
+         '#default_value' => variable_get('video_zencoder_grouping', NULL),
+         '#description' => t('Create a grouping for reporting purposes. Can be used with the Zencoder reporting API.')
+       );
+      $form['zencoder_info']['video_zencoder_http_username'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Zencoder HTTP username'),
+        '#default_value' => variable_get('video_zencoder_http_username'),
+        '#description' =>
+          t('Enter a username and a password below to enable HTTP Basic Auth protected transfer of the original video file.') . '<br />' .
+          t('This is useful if video files are stored in the private files directory and public access is not allowed.'),
+      );
+      $form['zencoder_info']['video_zencoder_http_password'] = array(
+        '#type' => 'password',
+        '#title' => t('Zencoder HTTP password'),
+      );
       $form['zencoder_info']['video_thumbnail_count_zc'] = array(
         '#type' => 'textfield',
         '#title' => t('Number of thumbnails'),
@@ -434,6 +468,24 @@ class TranscoderAbstractionFactoryZencoder extends TranscoderAbstractionFactory 
       // Workaround for the use of the same variable in FFmpeg
       $form_state['values']['video_thumbnail_count'] = $form_state['values']['video_thumbnail_count_zc'];
       unset($form_state['values']['video_thumbnail_count_zc']);
+
+      // Check for username if password was provided.
+      if (empty($v['video_zencoder_http_username']) && !empty($v['video_zencoder_http_password'])) {
+        form_set_error('video_zencoder_http_username', t('You must also provide a username.'));
+      }
+
+      // Check for password if username was provided.
+      if (!empty($v['video_zencoder_http_username']) && empty($v['video_zencoder_http_password'])) {
+        // If no password was provided, set the stored password. If there is no stored
+        // password, set form error.
+        $stored_password = variable_get('video_zencoder_http_password');
+        if (empty($stored_password)) {
+          form_set_error('video_zencoder_http_password', t('You must also provide a password.'));
+        }
+        else {
+          form_set_value($form['zencoder_info']['video_zencoder_http_password'], $stored_password, $form_state);
+        }
+      }
 
       // Check the postback URL if validation hasn't been disabled
       if (empty($v['video_zencoder_postback_donotvalidate'])) {

@@ -143,8 +143,28 @@ class Transcoder {
     $this->transcoder->setInput((array) $video);
     $transcodingsuccess = TRUE;
     $output = array();
-    $output_directory = str_replace('original', 'converted', drupal_dirname($video->uri)) . '/' . $video->fid;
-    $output_directory = $converted_scheme . '://' . file_uri_target($output_directory);
+	// Set output directory for converted files
+    // for following operations, we need 'file_directory' prefix from current bundle
+    $entity = entity_load('node', array("$video->entity_id"));
+    $entity = reset($entity);
+    list(, , $bundle) = entity_extract_ids('node', $entity);
+    $instance = field_info_instance('node', $video->data['field_name'], $bundle);
+    $fdirectory = $instance['settings']['file_directory'];
+    // if path not contains 'file_directory' string (probably because original video has been not copied to local file system)
+    if ((!empty($fdirectory)) && strpos(drupal_dirname($video->uri), $fdirectory) === false){
+		// replace last path level from file_directory with '/imported' or add '/imported' if only one level found ...
+		if (strrpos($fdirectory,'/') !== false){
+		$fdirectory = substr($fdirectory, 0, strrpos($fdirectory,'/')).'/imported';
+		}
+		//... and append source path and fid
+		$output_directory = $fdirectory . '/'. file_uri_target(drupal_dirname($video->uri)) . '/' . $video->fid;
+		$output_directory = $converted_scheme . '://' . $output_directory;
+    }
+    else {
+    // original behaviour for videos with original files in local file system
+		$output_directory = str_replace('original', 'converted', drupal_dirname($video->uri)) . '/' . $video->fid;
+		$output_directory = $converted_scheme . '://' . file_uri_target($output_directory);
+    }
 
     if (!file_prepare_directory($output_directory, FILE_CREATE_DIRECTORY)) {
       watchdog('transcoder', 'Video conversion failed. Could not create the directory: %dir', array('%dir' => $output_directory), WATCHDOG_ERROR);
@@ -161,10 +181,9 @@ class Transcoder {
         $preset['settings']['wxh'] = (variable_get('video_use_preset_wxh', FALSE)) ? $preset['settings']['wxh'] : $video->dimensions;
         $preset['settings']['thumbnails']['format'] = $thumbnail_format;
         $preset['settings']['thumbnails']['number'] = $thumbnail_number;
-
         // Only create thumbnails for the first preset
         $thumbnail_number = 0;
-
+		
         // set transcoder options
         if (!$this->transcoder->setOptions($preset['settings'])) {
           // setOptions should write to the watchdog log.
@@ -174,6 +193,9 @@ class Transcoder {
 
         $output_name = file_munge_filename(str_replace(' ', '_', pathinfo($video->filename, PATHINFO_FILENAME) . ' ' . strtolower($name)) . '_' . time() . '.' . $preset['settings']['video_extension'], '');
         $this->transcoder->setOutput($output_directory, $output_name);
+        // Close the database connection since encodding operation may take a lot of time
+        // and mysql connection will timed out
+        db_close(array('target' => 'default'));
         if ($output_file = $this->transcoder->execute()) {
           $output[] = $output_file;
         }
@@ -279,6 +301,11 @@ class Transcoder {
       $module_path = drupal_get_path('module', $module) . '/transcoders';
       foreach (file_scan_directory($module_path, '/.*\.inc/') as $filekey => $file) {
         $file->module = $module;
+
+        // Get filename to retrieve transcoder class name
+        $filename = explode(".", $file->name);
+        $file->name = $filename[0];
+
         $module_files[] = $file;
       }
       $files = array_merge($files, $module_files);

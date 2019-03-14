@@ -79,6 +79,7 @@ function video_entity_metadata_playable_files_get($item) {
 function video_field_settings_form($field, $instance, $has_data) {
   $transcoder = new Transcoder();
   $hastranscoder = $transcoder->hasTranscoder();
+  $default_file_scheme = variable_get('file_default_scheme', 'public');
 
   $defaults = field_info_field_settings($field['type']);
   $settings = array_merge($defaults, $field['settings']);
@@ -180,7 +181,7 @@ function video_field_settings_form($field, $instance, $has_data) {
     '#element_validate' => array('video_field_default_thumbnail_validate'),
     '#description' => t('You can use a default thumbnail for all videos or videos from which a thumbnail can\'t be extracted. Settings to use default video thumbnails will be available on node edit. You can change the permissions for other users too.'),
     '#default_value' => !empty($settings['default_video_thumbnail']['fid']) ? $settings['default_video_thumbnail']['fid'] : '',
-    '#upload_location' => 'public://videos/thumbnails/default',
+    '#upload_location' => $default_file_scheme . '://videos/thumbnails/default',
   );
 
   $form['preview_video_thumb_style'] = array(
@@ -717,7 +718,7 @@ function video_field_widget_value($element, $input = FALSE, $form_state) {
         }
 
         // If there is no job, it might be because the user selected
-        // "bypass autoconversion" previously. When the file is permanent, 
+        // "bypass autoconversion" previously. When the file is permanent,
         // this probably was the case.
         if (isset($value['status']) && $value['status'] == FILE_STATUS_PERMANENT) {
           $value['bypass_autoconversion'] = 1;
@@ -792,6 +793,11 @@ function video_field_widget_process($element, &$form_state, $form) {
       '#options' => $options,
       '#access' => user_access('override player dimensions'),
     );
+
+    // hide dimensions when video_use_preset_wxh is true
+    if (variable_get('video_use_preset_wxh', FALSE)) {
+      $element['dimensions']['#access'] = FALSE;
+    }
 
     if (!empty($file['conversionstatus']) && ($file['conversionstatus'] == VIDEO_RENDERING_COMPLETE || $file['conversionstatus'] == VIDEO_RENDERING_FAILED)) {
       $status = array(VIDEO_RENDERING_COMPLETE => 'was successful', VIDEO_RENDERING_FAILED => 'failed');
@@ -1002,6 +1008,14 @@ function video_field_formatter_info() {
         'widthxheight' => '640x360',
       ),
     ),
+    'video_formatter_url' => array(
+      'label' => t('Video url'),
+      'field types' => array('video'),
+      'settings' => array(
+        'video_extension' => '',
+        'link_title' => '',
+      ),
+    ),
   );
 }
 
@@ -1068,6 +1082,30 @@ function video_field_formatter_settings_form($field, $instance, $view_mode, $for
         '#options' => $image_styles,
       );
       break;
+      
+	case 'video_formatter_url':
+      // Get the transcoder presets
+      $presets = variable_get('video_preset');
+      $preset_extensions = array('original' => t('Original video format'));      
+      foreach ($presets as $preset){
+        $preset_settings = video_get_preset($preset);
+        $preset_extensions[$preset_settings['settings']['video_extension']] = $preset_settings['settings']['video_extension'];
+      }
+      
+      $element['video_extension'] = array(
+        '#title' => t('Video format'),
+        '#type' => 'select',
+        '#default_value' => $settings['video_extension'],
+        '#options' => $preset_extensions,
+      );
+      
+      $element['link_title'] = array(
+        '#title' => t('Link title'),
+        '#type' => 'textfield',
+        '#default_value' => $settings['link_title'],
+        '#description' => t('Leave this blank to use the url to the file'),
+      );
+      break;
   }
 
   return $element;
@@ -1112,6 +1150,11 @@ function video_field_formatter_settings_summary($field, $instance, $view_mode) {
       if (isset($image_styles[$settings['poster_image_style']])) {
         $summary[] = t('Poster image style: @style', array('@style' => $image_styles[$settings['poster_image_style']]));
       }
+      break;
+
+	case 'video_formatter_url':
+      $format = !empty($settings['video_extension']) ? t('transcoded ' . strtoupper($settings['video_extension']) . ' file') : 'Original file';
+      $summary[] = t('URL to @format', array('@format' => $format));
       break;
   }
 
@@ -1177,6 +1220,42 @@ function video_field_formatter_view($entity_type, $entity, $field, $instance, $l
           '#poster_image_style' => $settings['poster_image_style'],
         );
         break;
+      case 'video_formatter_url':
+        // If the original file is selected then we just return that
+        if ($settings['video_extension'] == 'original'){
+          $title = empty($settings['link_title']) ?  file_create_url($item['uri']) : $settings['link_title'];
+          $element[$delta] = array(
+            '#markup' => l($title, file_create_url($item['uri'])),
+            );
+            break;            
+        }
+      
+        // Nobody believes in standards
+        // @TODO revisit this, there must be a better way to replace the mimetypes
+        $extensions_fix = array('flv' => 'x-flv');
+        if (!empty($extensions_fix[$settings['video_extension']])){
+          $extension = $extensions_fix[$settings['video_extension']];
+        } else {
+          $extension = $settings['video_extension'];
+        }
+
+        $title = empty($settings['link_title']) ? NULL : $settings['link_title'];
+        
+        // Find the file based on the selected video type
+        foreach ($item['playablefiles'] as $file){
+          if (strstr($file->filemime, 'video/' . $extension)) {
+            $file_url = file_create_url($file->uri);
+            // Set the title to the filename if it's not set
+            if (empty($title)) $title = file_create_url($file->uri);
+            // Stop looking (shouldn't break out of switch)
+            //break;
+          }
+        }
+
+        $element[$delta] = array(
+          '#markup' => empty($item['uri']) ? '' : l($title, $item['uri']),
+          );
+	    break;
     }
   }
 
@@ -1224,15 +1303,37 @@ function _video_field_file_autoconversion($entity_type, $entity, $field, $instan
     // Create the job if it doesn't exist
     if (!$video) {
       list($entity_id, $entity_vid, $bundle) = entity_extract_ids($entity_type, $entity);
-      // @todo get the default dimension when not available in $item
+      // get the default dimension when not available in $item
+      $info_instance = field_info_instance('node', $field['field_name'], $bundle);
+      if (empty($item['dimensions'])) {
+            $item['dimensions'] = $info_instance['settings']['default_dimensions'];
+          }
       if (!video_jobs::create($item['fid'], $item['dimensions'], $entity_id, $entity_type, $field['field_name'], $langcode, $delta)) {
         drupal_set_message(t('Something went wrong with your video job creation. Please check your recent log entries for further debugging.'), 'error');
         return;
       }
       // Load a fresh copy of the job
       $video = video_jobs::load($fid);
+ 
+	 // for case that video was not created through the form, we should check if it has a allowed extension and if needed, generate thumbnails.
+	 $fextension = video_utility::getExtension($video->filename);
+	 if ( strpos($info_instance['settings']['file_extensions'], $fextension) === false) {
+	drupal_set_message(t('The extension "' . $fextension .'" of file ' . $video->filename . ' is not allowed for import. Encoding job for '.$transcoder->getTranscoder()->getName(). ' cannot be created.'),'error');
+	return;
+	}
+	// if thumbnail(s) already exists or autocreation for thumbnails is disabled, do nothing.
+	if (empty($item['thumbnail']) && $field['settings']['autothumbnail'] == 'auto' ) {
+	$thumbs = $transcoder->extractFrames($item, $field);
+	// if thumbnails creation fails, we can assume, that something in the file is wrong and encoding will also fail     
+	if ($thumbs === FALSE) {
+		drupal_set_message(t('Thumbnails creation for '.$video->filename.' failed. Encoding job for '.$transcoder->getTranscoder()->getName(). ' cannot be created. Please check your recent log entries for further debugging.'),'error');
+        return;
+		}
+        else {
+			drupal_set_message('Thumbnails successfully created for '.$video->filename.'.','status');
+        }
     }
-
+	}
     // re queue for video conversion
     if (!empty($item['re_convert_video'])) {
       $video->video_status = VIDEO_RENDERING_PENDING;

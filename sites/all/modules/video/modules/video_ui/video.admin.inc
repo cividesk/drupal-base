@@ -450,24 +450,23 @@ function video_video_html5_players() {
 /**
  * Page callback that displays FFmpeg information.
  */
-function video_admin_ffmpeg_info($form_state) {
+function video_admin_ffmpeg_info($form, $form_state) {
   $ffmpegpath = variable_get('video_ffmpeg_path', '/usr/bin/ffmpeg');
-  if (isset($_GET['ffmpegpath'])) {
-    $ffmpegpath = $_GET['ffmpegpath'];
+  if (isset($form_state['values']['ffmpegpath'])) {
+    $ffmpegpath = $form_state['values']['ffmpegpath'];
   }
 
-  $form = array();
   $form['ffmpegpath'] = array(
     '#type' => 'textfield',
     '#title' => t('Path to FFmpeg or avconv executable'),
-    '#default_value' => $ffmpegpath,
+    '#default_value' => variable_get('video_ffmpeg_path', '/usr/bin/ffmpeg'),
     '#required' => TRUE,
   );
 
   $form['actions']['#type'] = 'actions';
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Show information'));
 
-  if ($ffmpegpath != '') {
+  if (file_exists($ffmpegpath) && is_executable($ffmpegpath)) {
     $transcoder = new PHPVideoToolkit($ffmpegpath, realpath(file_directory_temp()) . '/');
     $info = $transcoder->getFFmpegInfo(FALSE);
     $infotxt = var_export($info, TRUE);
@@ -475,7 +474,7 @@ function video_admin_ffmpeg_info($form_state) {
     $form['info'] = array(
       '#type' => 'textarea',
       '#title' => t('Debug information'),
-      '#default_value' => $infotxt,
+      '#value' => $infotxt,
       '#weight' => 1000,
       '#rows' => min(20, substr_count($infotxt, "\n")),
     );
@@ -484,13 +483,17 @@ function video_admin_ffmpeg_info($form_state) {
   return $form;
 }
 
+function video_admin_ffmpeg_info_validate($form, &$form_state) {
+  if (!empty($form_state['values']['ffmpegpath'])) {
+    $ffmpegpath = $form_state['values']['ffmpegpath'];
+    if (!file_exists($ffmpegpath) || !is_executable($ffmpegpath)) {
+      form_error($form['ffmpegpath'], t('The path @path must point to an executable file.', array(
+        '@path' => $ffmpegpath,
+      )));
+    }
+  }
+}
+
 function video_admin_ffmpeg_info_submit($form, &$form_state) {
-  $form_state['redirect'] = array(
-    'admin/config/media/video/ffmpeg-info',
-    array(
-      'query' => array(
-        'ffmpegpath' => $form_state['values']['ffmpegpath'],
-      ),
-    ),
-  );
+  $form_state['rebuild'] = TRUE;
 }

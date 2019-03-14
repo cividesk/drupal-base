@@ -324,10 +324,186 @@ function video_update_7201(&$sandbox) {
 }
 
 /**
- * Alter video_queue table to add video duration.
+ * Add missing tables and alter video_queue table to add video duration.
  */
 function video_update_7202(&$sandbox) {
+  // Video Queue
+  $schema['video_queue'] = array(
+    'description' => 'Store video transcoding queue.',
+    'fields' => array(
+      'vid' => array(
+        'description' => t('Video id, the primary identifier'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'fid' => array(
+        'description' => 'The {file_managed}.fid being referenced in this field.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid being referenced in this field.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'status' => array(
+        'description' => 'Status of the transcoding, possible values are 1, 5, 10, 20',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'dimensions' => array(
+        'description' => 'The dimensions of the output video.',
+        'type' => 'varchar',
+        'length' => '255',
+        'default' => '',
+      ),
+      'duration' => array(
+        'description' => 'Stores the video duration in Sec.',
+        'type' => 'int',
+        'default' => 0,
+      ),
+      'started' => array(
+        'description' => t('Start timestamp of transcodings'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'completed' => array(
+        'description' => 'Transcoding completed timestamp',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'data' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of converted files.
+          Use of this field is discouraged and it will likely disappear in a future version of Drupal.',
+      ),
+    ),
+    'indexes' => array(
+      'status' => array('status'),
+      'file' => array('fid'),
+    ),
+    'primary key' => array('vid'),
+  );
+  // video preset
+  $schema['video_preset'] = array(
+    'description' => 'The preset table.',
+    'fields' => array(
+      'pid' => array(
+        'description' => 'The primary identifier for a video preset.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The name of this preset.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => 'A brief description of this preset.',
+        'type' => 'text',
+        'size' => 'medium',
+        'translatable' => TRUE,
+      ),
+      'settings' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'Serialized preset settings that do not warrant a dedicated column.
+          Use of this field is discouraged and it will likely disappear in a future version of Drupal.',
+      ),
+    ),
+    'unique keys' => array(
+      'name' => array('name'),
+    ),
+    'primary key' => array('pid'),
+  );
+  // video thumbnails
+  $schema['video_thumbnails'] = array(
+    'description' => 'The video thumbnails table.',
+    'fields' => array(
+      'vid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Foreign Key {video_queue}.fid.',
+      ),
+      'thumbnails' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'Serialized array of thumbnails data.
+          Use of this field is discouraged and it will likely disappear in a future version of Drupal.',
+      ),
+    ),
+    'indexes' => array(
+      'thumbnail' => array('vid'),
+    ),
+    'foreign keys' => array(
+      'thumbnails' => array(
+        'table' => 'video_queue',
+        'columns' => array('vid' => 'vid'),
+      ),
+    ),
+  );
+  // video converted file reference
+  $schema['video_output'] = array(
+    'description' => 'Track file id for conveted files.',
+    'fields' => array(
+      'vid' => array(
+        'description' => 'Video ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'original_fid' => array(
+        'description' => 'Original File ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'output_fid' => array(
+        'description' => 'Converted file fid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'job_id' => array(
+        'description' => 'Referenced job id if any.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+    ),
+    'primary key' => array('vid', 'original_fid', 'output_fid')
+  );
+
   $ret = array();
+
+  // Install tables that don't exist.
+  foreach ($schema as $table_name => $table_schema) {
+    if (!db_table_exists($table_name)) {
+      db_create_table($table_name, $table_schema);
+    }
+  }
+
   // Check because D6 installs may already have added this.
   if (!db_field_exists('video_queue', 'duration')) {
     $new_field = array(

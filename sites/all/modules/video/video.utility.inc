@@ -247,7 +247,7 @@ class video_utility {
     return array(
       'divx' => 'video_play_divx',
       'mkv' => 'video_play_divx',
-      'mov' => 'video_play_html5',
+      'mov' => 'video_play_quicktime',
       '3gp' => 'video_play_quicktime',
       '3g2' => 'video_play_quicktime',
       'mp4' => 'video_play_html5',

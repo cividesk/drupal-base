@@ -13,6 +13,10 @@ class video_handler_field_video_duration extends views_handler_field {
       return gmdate("H:i:s", $values->video_queue_duration);
     }
 
+    if (!empty($values->field_field_video[0]['raw']['duration'])) {
+      return gmdate("H:i:s", $values->field_field_video[0]['raw']['duration']);
+    }
+
     return NULL;
   }
 }

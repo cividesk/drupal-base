@@ -24,6 +24,15 @@ function video_transcoder_postback_jobs() {
 }
 
 /**
+ * Menu callback for video/transfer/%file
+ */
+function video_transfer_file($file) {
+  $headers = file_get_content_headers($file);
+  $headers['Content-disposition'] = 'attachment; filename="' . mime_header_encode($file->filename) . '";';
+  file_transfer($file->uri, $headers);
+}
+
+/**
  * video browser menu callback
  */
 function video_file_browser() {

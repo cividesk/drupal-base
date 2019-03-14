@@ -34,6 +34,14 @@ function video_menu() {
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
+  $items['video/transfer/%file'] = array(
+    'page callback' => 'video_transfer_file',
+    'page arguments' => array(2),
+    'file' => 'video.pages.inc',
+    'access callback' => 'video_transfer_access',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+  );
   $items['video/browser'] = array(
     'page callback' => 'video_file_browser',
     'file' => 'video.pages.inc',
@@ -48,6 +56,40 @@ function video_menu() {
     'type' => MENU_CALLBACK,
   );
   return $items;
+}
+
+/**
+ * Access callback for video/transfer/%file
+ *
+ * @param object $file
+ *   A file object.
+ *
+ * @return bool
+ *  TRUE if access should be granted.
+ *  FALSE otherwise.
+ */
+function video_transfer_access($file) {
+  $arguments = array(
+    ':fid' => $file->fid,
+    ':status' => VIDEO_RENDERING_ACTIVE,
+  );
+
+  if (db_query('SELECT f.fid FROM {file_managed} f INNER JOIN {video_queue} q ON f.fid = q.fid WHERE f.fid = :fid AND q.status = :status', $arguments)->fetchField()) {
+    $username = variable_get('video_zencoder_http_username', FALSE);
+    $password = variable_get('video_zencoder_http_password', FALSE);
+
+    if (isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW']) && !empty($username) && !empty($password) && $_SERVER['PHP_AUTH_USER'] == $username && $_SERVER['PHP_AUTH_PW'] == $password) {
+      return TRUE;
+    }
+    else {
+      drupal_add_http_header('WWW-Authenticate', 'Basic realm="Video transfer"');
+      drupal_add_http_header('Status', '401 Unauthorized');
+      print t('Access denied');
+      drupal_exit();
+    }
+  }
+
+  return FALSE;
 }
 
 /**
@@ -385,9 +427,9 @@ function video_file_download($uri) {
 
   // If $uri is a converted file or thumbnail, $fileinfo contains the file object for that file and the URI of the original video
   if ($fileinfo != NULL) {
-    $original_headers = file_file_download($fileinfo->videouri, 'video');
-    if ($original_headers === -1 || $original_headers === NULL) {
-      return drupal_access_denied();
+    $original_headers = file_download_headers($fileinfo->videouri);
+    if (empty($original_headers)) {
+      return -1;
     }
 
     // Get the headers of the converted file of thumbnail and return

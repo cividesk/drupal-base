@@ -280,6 +280,14 @@ class PHPVideoToolkit {
   protected $_log_file = NULL;
 
   /**
+   * Set to non-zero to adjust frame size to be a multiple of.
+   * @access public
+   * @var integer
+   */
+  public $width_multiple = 0;
+  public $height_multiple = 0;
+
+  /**
    * Determines if when outputting image frames if the outputted files should have the %d number
    * replaced with the frames timecode.
    * @var boolean If TRUE then the files will be renamed.
@@ -646,7 +654,7 @@ class PHPVideoToolkit {
     // grab the codecs available
     $codecsmatches = array();
     $data['codecs'] = array('video' => array(), 'audio' => array(), 'subtitle' => array());
-    if (preg_match_all('/ ((?:[DEVAST ]{6})|(?:[DEVASTFB ]{8})|(?:[DEVASIL\.]{6})) ([A-Za-z0-9\_]+) (.+)/', $codecs, $codecsmatches)) {
+    if (preg_match_all('/((?:[DEVAST ]{6})|(?:[DEVASTFB ]{8})|(?:[DEVASIL\.]{6})) ([A-Za-z0-9\_]+) (.+)/', $codecs, $codecsmatches)) {
 
 // FFmpeg 0.12+
 //  D..... = Decoding supported
@@ -925,7 +933,7 @@ class PHPVideoToolkit {
     // grab the duration and bitrate data
     preg_match_all('/Duration: (.*)/', $raw, $matches);
 
-    if (!empty($matches)) {
+    if (!empty($matches[0])) {
       $line = trim($matches[0][0]);
       // capture any data
       preg_match_all('/(Duration|start|bitrate): ([^,]*)/', $line, $matches);
@@ -1017,6 +1025,12 @@ class PHPVideoToolkit {
       }
       $data['video']['pixel_format'] = $formats[1];
       $data['video']['codec'] = $formats[0];
+
+      // is rotation set?
+      preg_match('/rotate\s*:\s*(\d+)/', $raw, $rotate_matches);
+      if (count($rotate_matches) > 0) {
+        $data['video']['rotate'] = intval($rotate_matches[1]);
+      }
     }
 
     // match the audio stream info
@@ -1435,6 +1449,15 @@ class PHPVideoToolkit {
 // <-		   		exits
       }
     }
+    if ($video_codec == 'libtheora') {
+      // Special case for libtheora which demands the frame size to be multiples of 16x16
+      $this->width_multiple = 16;
+      $this->height_multiple = 16;
+    }
+    else {
+      $this->width_multiple = 0;
+      $this->height_multiple = 0;
+    }
     return $this->addCommand('-strict experimental -vcodec', $video_codec);
   }
 
@@ -1577,6 +1600,22 @@ class PHPVideoToolkit {
   }
 
   /**
+   * Adjust size to be a multiple of a given integer.
+   * @param integer $size
+   * @param integer $multiple
+   * @return integer How much to pad on each end to make the adjustment.
+   */
+  private function checkVideoSize($size, $multiple) {
+    $extra = 0;
+    if ($multiple > 0 && $size % $multiple != 0) {
+      // Round up
+      $size_adj = ((int)(($size + $multiple - 1) / $multiple)) * $multiple;
+      $extra = ((int)(($size_adj - $size) / 4)) * 2;
+    }
+    return $extra;
+  }
+
+  /**
    * Sets the video output dimensions (in pixels)
    *
    * @access public
@@ -1631,7 +1670,11 @@ class PHPVideoToolkit {
           return $this->_raiseError('setVideoOutputDimensions_sas_dim');
         }
         else {
-          $width = $info['video']['dimensions']['width'] . 'x' . $info['video']['dimensions']['height'];
+          $w = $info['video']['dimensions']['width'];
+          $h = $info['video']['dimensions']['height'];
+          $hor_pad = $this->checkVideoSize($w, $this->width_multiple);
+          $ver_pad = $this->checkVideoSize($h, $this->height_multiple);
+          $width = $w . 'x' . $h;
         }
       }
     }
@@ -1642,6 +1685,8 @@ class PHPVideoToolkit {
         return $this->_raiseError('setVideoOutputDimensions_valid_integer');
 // <-				exits
       }
+      $hor_pad = $this->checkVideoSize($width, $this->width_multiple);
+      $ver_pad = $this->checkVideoSize($height_split[0], $this->height_multiple);
       $width = $width . 'x' . $height_split[0];
     }
     $this->addCommand('-s', $width);
@@ -1659,6 +1704,14 @@ class PHPVideoToolkit {
           $this->addCommand($command[0], $command[1]);
         }
       }
+    }
+    if ($hor_pad) {
+      $this->addCommand('-padleft', $hor_pad);
+      $this->addCommand('-padright', $hor_pad);
+    }
+    if ($ver_pad) {
+      $this->addCommand('-padtop', $ver_pad);
+      $this->addCommand('-padbottom', $ver_pad);
     }
     return TRUE;
   }

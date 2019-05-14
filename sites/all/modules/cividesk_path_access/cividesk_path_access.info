@@ -1,6 +1,6 @@
 name = Cividesk Path Access
-description = Restrict access to any paths by user role
-package = Access control
+description = Restrict access to any paths by non-cividesk users
+package = Cividesk
 core = 7.x
 dependencies[] = chain_menu_access
 dependencies[] = path

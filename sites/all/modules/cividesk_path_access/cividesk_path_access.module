@@ -143,7 +143,7 @@ function cividesk_path_access_admin_roles() {
 /**
  * Define role access form.
  */
-function cividesk_path_access_admin_configure_form($form, &$form_state, $role) {
+function cividesk_path_access_admin_configure_form() {
   $role->rid = 2;
   $settings = db_query('SELECT * FROM {cividesk_path_access} pa INNER JOIN {role} r ON pa.rid = r.rid')->fetchObject();
 

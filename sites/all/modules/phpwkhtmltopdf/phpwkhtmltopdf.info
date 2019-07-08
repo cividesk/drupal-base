@@ -1,0 +1,15 @@
+name = PHPWkHtmlToPdf
+description = "Drupal Library implementation for the PHP WkHtmlToPdf wrapper. You must have WkHtmlToPdf already installed on the server and included in your PATH variable."
+version = 2.0
+core = 7.x
+
+files[] = lib/phpwkhtmltopdf.php
+
+dependencies[] = 'libraries'
+
+; Information added by Drupal.org packaging script on 2015-05-12
+version = "7.x-2.1"
+core = "7.x"
+project = "phpwkhtmltopdf"
+datestamp = "1431435184"
+

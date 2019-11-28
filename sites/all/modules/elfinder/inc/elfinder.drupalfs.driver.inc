@@ -409,7 +409,7 @@ class elFinderVolumeDrupal extends elFinderVolumeLocalFileSystem {
     return $ret;
   }
 
-  public function extract($hash) {
+  public function extract($hash, $makedir = NULL) {
     if (!$this->CheckUserQuota()) {
       return FALSE;
     }

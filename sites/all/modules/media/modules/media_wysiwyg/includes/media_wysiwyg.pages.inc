@@ -118,6 +118,7 @@ function media_wysiwyg_format_form($form, &$form_state, $file) {
         '#type' => 'textfield',
         '#title' => t('Link Image'),
         '#description' => t('Enter a URL to turn the image into a link.'),
+        '#maxlength' => 2048,
         '#default_value' => $external_url,
       );
     }
@@ -180,6 +181,7 @@ function media_wysiwyg_format_form_view_mode(&$form, $form_state, $file) {
       'class' => 'button',
       'title' => t('Use for replace fox or edit file fields.'),
     ),
+    'query' => drupal_get_destination(),
   );
   if (!empty($_GET['render'])) {
     $link_options['query']['render'] = $_GET['render'];

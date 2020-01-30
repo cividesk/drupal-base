@@ -213,6 +213,23 @@ class wf_crm_webform_preprocess extends wf_crm_webform_base {
         // RM: This is needed in order for CiviCRM to know that this is a 'test' (i.e. 'preview' action in CiviCRM) transaction - otherwise, CiviCRM defaults to 'live' and returns the payment form with public key for the live payment processor!
         $contributionCallbackQuery['action'] = CRM_Core_Action::description(CRM_Core_Action::PREVIEW);
       }
+      //Ptach from https://www.drupal.org/project/webform_civicrm/issues/3093045
+      // Check if there are url parameters.
+      $params = $_GET;
+      // Unset q & destination.
+      unset($params['q']);
+      unset($params['destination']);
+      // cid1 should be cid.
+      if (isset($params['cid1']) && !isset($params['cid'])) {
+        $params['cid'] = $params['cid1'];
+        unset($params['cid1']);
+      }
+      // Add other params in callback query.
+      if (!empty($params)) {
+        foreach ($params as $key => $value) {
+          $contributionCallbackQuery[$key] = $value;
+        }
+      }
       $js_vars['contributionCallback'] = url($contributionCallbackUrl, array('query' => $contributionCallbackQuery, 'alias' => TRUE));
       // Add payment processor - note we have to search in 2 places because $this->loadMultipageData hasn't been run. Maybe it should be?
       $fid = 'civicrm_1_contribution_1_contribution_payment_processor_id';

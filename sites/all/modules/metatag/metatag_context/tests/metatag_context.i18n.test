@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests the Metatag:Context module for i18n integration.
+ */
+
+/**
  * Tests the Metatag:Context module for i18n integration.
  */
 class MetatagContextI18nTest extends MetatagTestHelper {
@@ -13,7 +18,7 @@ class MetatagContextI18nTest extends MetatagTestHelper {
       'name' => 'Metatag:Context tests, with i18n',
       'description' => 'Test Metatag integration with the Context and i18n modules.',
       'group' => 'Metatag',
-      'dependencies' => array('ctools', 'token', 'context', 'i18n'),
+      'dependencies' => array('ctools', 'devel', 'token', 'context', 'i18n'),
     );
   }
 
@@ -52,7 +57,7 @@ class MetatagContextI18nTest extends MetatagTestHelper {
 
     // Log in the admin user.
     $this->drupalLogin($this->adminUser);
-    
+
     // Reload the translations.
     drupal_flush_all_caches();
     module_load_include('admin.inc', 'i18n_string');

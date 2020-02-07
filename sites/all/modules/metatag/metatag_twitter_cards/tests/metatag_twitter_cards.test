@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag Twitter Cards module.
+ */
+
+/**
  * Tests for the Metatag Twitter Cards module.
  */
 class MetatagTwitterCardsTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagTwitterCardsTest extends MetatagTestHelper {
       'name' => 'Metatag Twitter Cards tests',
       'description' => 'Test the Metatag:Twitter Cards module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

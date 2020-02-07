@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag Verification module.
+ */
+
+/**
  * Tests for the Metatag Verification module.
  */
 class MetatagVerificationTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagVerificationTest extends MetatagTestHelper {
       'name' => 'Metatag Verification tests',
       'description' => 'Test the Metatag:Verification module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

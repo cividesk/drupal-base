@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag OpenGraph module.
+ */
+
+/**
  * Tests for the Metatag OpenGraph module.
  */
 class MetatagOpenGraphTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagOpenGraphTest extends MetatagTestHelper {
       'name' => 'Metatag OpenGraph tests',
       'description' => 'Test the Metatag:OpenGraph module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

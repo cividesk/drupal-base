@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests that each of the Metatag Facebook tags work correctly.
+ */
+
+/**
  * Tests that each of the Metatag Facebook tags work correctly.
  */
 class MetatagFacebookTagsTest extends MetatagTagsTestBase {
@@ -13,6 +18,7 @@ class MetatagFacebookTagsTest extends MetatagTagsTestBase {
       'name' => 'Metatag tags: Facebook',
       'description' => 'Test the Facebook meta tags.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

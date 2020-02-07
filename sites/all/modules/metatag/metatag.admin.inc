@@ -85,7 +85,7 @@ function metatag_config_overview() {
       $row['class'][] = 'warning';
     }
 
-    // Close the details div
+    // Close the details div.
     $details .= '</div>';
 
     // Add indentation to the leading cell based on how many parents the config has.
@@ -383,10 +383,11 @@ function metatag_config_export_form($config) {
  * Form constructor to revert nodes to their default metatags.
  *
  * @see metatag_bulk_revert_form_submit()
+ *
  * @ingroup forms
  */
 function metatag_bulk_revert_form() {
-  // Get the list of entity:bundle options
+  // Get the list of entity:bundle options.
   $options = array();
   foreach (entity_get_info() as $entity_type => $entity_info) {
     foreach (array_keys($entity_info['bundles']) as $bundle) {
@@ -550,7 +551,7 @@ function metatag_bulk_revert_batch_operation($entity_type, $bundle, $tags, $lang
           $entities = entity_load($entity_type, array($entity_id));
           if (!empty($entities[$entity_id])) {
             // We only care about the revision_id.
-            list(, $revision_id, ) = entity_extract_ids($entity_type, $entities[$entity_id]);
+            list(, $revision_id,) = entity_extract_ids($entity_type, $entities[$entity_id]);
           }
           metatag_metatags_save($entity_type, $entity_id, $revision_id, $metatags, $bundle);
           $reset = TRUE;
@@ -673,6 +674,19 @@ function metatag_admin_settings_form() {
     '#default_value' => variable_get('metatag_pager_string', 'Page PAGER | '),
   );
 
+  $form['additional']['metatag_summary_text_field'] = array(
+    '#title' => t('Add summary tokens for regular text fields'),
+    '#type' => 'checkbox',
+    '#description' => t("By default Metatag's summary tokens are added to long text fields. Enabling this option will also add summary tokens for all plain text fields."),
+    '#default_value' => variable_get('metatag_summary_text_field', FALSE),
+  );
+  $form['additional']['metatag_summary_length'] = array(
+    '#title' => t('Length of summary'),
+    '#type' => 'textfield',
+    '#description' => t("How long each of the summary tokens will be after it is truncated."),
+    '#default_value' => variable_get('metatag_summary_length', 200),
+  );
+
   $form['i18n'] = array(
     '#type' => 'fieldset',
     '#title' => t('Internationalization options'),
@@ -776,6 +790,32 @@ function metatag_admin_settings_form() {
     '#default_value' => variable_get('metatag_token_sanitize', FALSE),
   );
 
+  $form['lengths'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Maximum meta tag lengths'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#description' => t('Many meta tags may be shortened to a certain length. To reset to the default, leave the field blank. To keep the entire meta tag, regardless of length, set the value to zero (0). Note: the meta tag will be shortened <em>after</em> the tokens have been replaced, not before.'),
+  );
+  $info = metatag_get_info();
+  $groups = $info['groups'];
+  $tags = $info['tags'];
+  foreach ($tags as $tag => $info) {
+    if (isset($info['maxlength'])) {
+      $default = $info['maxlength'];
+      $var_name = 'metatag_maxlength_' . $tag;
+      $title = $info['label'];
+      if (!empty($info['group']) && isset($groups[$info['group']])) {
+        $title = $groups[$info['group']]['label'] . ': ' . $title;
+      }
+      $form['lengths'][$var_name] = array(
+        '#type' => 'textfield',
+        '#title' => $title,
+        '#default_value' => intval(variable_get($var_name, $default)),
+      );
+    }
+  }
+
   // Extra submission logic.
   $form['#submit'][] = 'metatag_admin_settings_form_submit';
 
@@ -785,8 +825,34 @@ function metatag_admin_settings_form() {
 /**
  * Form API submission callback for metatag_admin_settings_form().
  */
-function metatag_admin_settings_form_submit() {
-  cache_clear_all('entity_info:', 'cache', TRUE);
+function metatag_admin_settings_form_submit($form, &$form_state) {
+  // Only keep maxlength values that are numeric. Any empty, non-zero values
+  // will be removed.
+  foreach ($form_state['values'] as $name => $value) {
+    if (strpos($name, 'metatag_maxlength_') !== FALSE) {
+      if ((empty($value) && $value !== 0 && $value !== '0') || !is_numeric($value)) {
+        unset($form_state['values'][$name]);
+        variable_del($name);
+      }
+      else {
+        $form_state['values'][$name] = intval($value);
+      }
+    }
+  }
+
+  // If the token option was disabled, clear the token cache too.
+  $old_var = (bool) variable_get('metatag_summary_text_field', FALSE);
+  $new_var = !empty($form_state['values']['metatag_summary_text_field']);
+  if ($old_var != $new_var) {
+    token_clear_cache();
+  }
+
+  // Make sure the metatag_summary_length value is a number.
+  if (!empty($form_state['values']['metatag_summary_length'])) {
+    $form_state['values']['metatag_summary_length'] = intval($form_state['values']['metatag_summary_length']);
+  }
+
+  // Clear the Metatag caches so any settings changes will be available.
   cache_clear_all('*', 'cache_metatag', TRUE);
-  drupal_set_message(t('The Metatag cache has been cleared, so all meta tags can be reloaded.'));
+  drupal_set_message(t('The Metatag cache has been cleared so all meta tags can be reloaded.'));
 }

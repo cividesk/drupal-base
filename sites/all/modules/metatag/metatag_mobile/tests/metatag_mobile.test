@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag Mobile module.
+ */
+
+/**
  * Tests for the Metatag Mobile module.
  */
 class MetatagMobileTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagMobileTest extends MetatagTestHelper {
       'name' => 'Metatag Mobile tests',
       'description' => 'Test the Metatag:Mobile module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

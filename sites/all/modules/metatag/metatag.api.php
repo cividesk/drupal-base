@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * API documentation for the Metatag module.
@@ -35,7 +36,7 @@ function hook_metatag_config_default() {
   $config->disabled = FALSE;
   $config->config = array(
     'title' => array('value' => '[current-page:title] | [site:name]'),
-    'generator' => array('value' => 'Drupal 7 (http://drupal.org)'),
+    'generator' => array('value' => 'Drupal 7 (https://www.drupal.org)'),
     'canonical' => array('value' => '[current-page:url:absolute]'),
     'shortlink' => array('value' => '[current-page:url:unaliased]'),
   );
@@ -214,6 +215,11 @@ function hook_metatag_config_delete($config) {
  *     'url' - If set to TRUE, relative paths will be converted to absolute.
  *     'is_language' - If set to TRUE, will not allow the Drupal default
  *       language value "und" to be output.
+ *     'maxlength' - If set to a numeric value, meta tag values will be trimmed
+ *       to this limit, which may be overridden via the settings page. Note: any
+ *       meta tags with this value assigned can have its maxlength controlled,
+ *       so setting the attribute to an empty string will allow site builders to
+ *       adjust the meta tag lengths as needed.
  *     'select_or_other' - If set to TRUE, form[#type] is set to 'select' and
  *       the "select_or_other" module is available, that module will be used to
  *       provide a text field to manually insert another option.
@@ -269,13 +275,35 @@ function hook_metatag_info_alter(&$info) {
 }
 
 /**
+ * Alter raw metatags before being cached.
+ *
+ * This hook is invoked prior to the meta tags for a given page are converted to
+ * a render array and cached.
+ *
+ * @param array $metatags
+ *   All of the meta tags to be output for this page in their raw format, keyed
+ *   by tag name. Each tag is an array with a "value" field to hold the
+ *   respective value or values.
+ * @param string $instance
+ *   An identifier for the current page's page type, typically a combination
+ *   of the entity name and bundle name, e.g. "node:story".
+ * @param array $options
+ *   All of the options used to generate the meta tags.
+ */
+function hook_metatag_metatags_alter(array &$metatags, array $instance, array $options) {
+  if (isset($metatags['description']['value'])) {
+    $metatags['description']['value'] = '0 rly?';
+  }
+}
+
+/**
  * Alter metatags before being cached.
  *
  * This hook is invoked prior to the meta tags for a given page are cached.
  *
  * @param array $output
- *   All of the meta tags to be output for this page in their raw format. This
- *   is a heavily nested array.
+ *   All of the meta tags to be output for this page in their render format.
+ *   This is a heavily nested array.
  * @param string $instance
  *   An identifier for the current page's page type, typically a combination
  *   of the entity name and bundle name, e.g. "node:story".

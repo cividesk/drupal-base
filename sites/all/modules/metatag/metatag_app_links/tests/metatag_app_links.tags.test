@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests that each of the Metatag App Links tags work correctly.
+ */
+
+/**
  * Tests that each of the Metatag App Links tags work correctly.
  */
 class MetatagAppLinksTagsTest extends MetatagTagsTestBase {
@@ -13,6 +18,7 @@ class MetatagAppLinksTagsTest extends MetatagTagsTestBase {
       'name' => 'Metatag tags: App Links',
       'description' => 'Test the App Links meta tags.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 
@@ -64,7 +70,6 @@ class MetatagAppLinksTagsTest extends MetatagTagsTestBase {
    */
   public function getTestTagName($tag_name) {
     // All of the tags have their underlines replaced with colons.
-
     // Start with the beginning of the string.
     $tag_name = str_replace('al_', 'al:', $tag_name);
 

@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag module for the direct Views integration.
+ */
+
+/**
  * Tests for the Metatag module for the direct Views integration.
  */
 class MetatagViewsTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagViewsTest extends MetatagTestHelper {
       'name' => 'Metatag:Views tests',
       'description' => 'Test Metatag integration via the Metatag:Views module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

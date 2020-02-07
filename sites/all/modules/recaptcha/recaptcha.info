@@ -4,7 +4,7 @@ core = 7.x
 package = Spam control
 dependencies[] = captcha
 configure = admin/config/people/captcha/recaptcha
-php = 5.3.2
+php = 5.5
 
 files[] = recaptcha.test
 files[] = recaptcha-php/src/ReCaptcha/ReCaptcha.php
@@ -14,11 +14,10 @@ files[] = recaptcha-php/src/ReCaptcha/Response.php
 files[] = recaptcha-php/src/ReCaptcha/RequestMethod/Post.php
 files[] = recaptcha-php/src/ReCaptcha/RequestMethod/Socket.php
 files[] = recaptcha-php/src/ReCaptcha/RequestMethod/SocketPost.php
-files[] = src/ReCaptcha/RequestMethod/Drupal7.php
+files[] = src/ReCaptcha/RequestMethod/Drupal7Post.php
 
-; Information added by Drupal.org packaging script on 2016-04-23
-version = "7.x-2.1"
+; Information added by Drupal.org packaging script on 2019-01-31
+version = "7.x-2.3"
 core = "7.x"
 project = "recaptcha"
-datestamp = "1461441840"
-
+datestamp = "1548967989"

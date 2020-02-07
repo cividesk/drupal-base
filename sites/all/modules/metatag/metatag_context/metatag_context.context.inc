@@ -1,9 +1,13 @@
 <?php
+
 /**
  * @file
  * Context reaction for Metatag.
  */
 
+/**
+ * Context reaction for Metatag.
+ */
 class metatag_context_reaction extends context_reaction {
   function options_form($context) {
     $form = array();
@@ -174,6 +178,10 @@ class metatag_context_reaction extends context_reaction {
           $options['token data'] = array($entities[0] => $data[0]);
         }
 
+        // Trigger hook_metatag_metatags_alter(). Allow the raw meta tags to be
+        // modified prior to rendering.
+        drupal_alter('metatag_metatags', $metatags, $instance, $options);
+
         // Don't output meta tags that only contain the pager.
         $current_pager = metatag_get_current_pager();
 
@@ -193,6 +201,7 @@ class metatag_context_reaction extends context_reaction {
       }
     }
   }
+
 }
 
 /**

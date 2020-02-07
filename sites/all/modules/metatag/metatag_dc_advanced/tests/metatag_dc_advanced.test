@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag DC Advanced module.
+ */
+
+/**
  * Tests for the Metatag DC Advanced module.
  */
 class MetatagDcAdvancedTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagDcAdvancedTest extends MetatagTestHelper {
       'name' => 'Metatag DC Advanced tests',
       'description' => 'Test the Metatag:DC Advanced module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

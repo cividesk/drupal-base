@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag Devel module.
+ */
+
+/**
  * Tests for the Metatag Devel module.
  */
 class MetatagDevelest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagDevelest extends MetatagTestHelper {
       'name' => 'Metatag Devel tests',
       'description' => 'Test the Metatag:Devel module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

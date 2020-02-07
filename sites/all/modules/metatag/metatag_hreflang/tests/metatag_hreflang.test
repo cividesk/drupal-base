@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag HrefLang module.
+ */
+
+/**
  * Tests for the Metatag HrefLang module.
  */
 class MetatagHreflangTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagHreflangTest extends MetatagTestHelper {
       'name' => 'Metatag Hreflang tests',
       'description' => 'Test the Metatag:Hreflang module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

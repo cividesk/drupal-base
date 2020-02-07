@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag AppLinks module.
+ */
+
+/**
  * Tests for the Metatag AppLinks module.
  */
 class MetatagAppLinksTest extends MetatagTestHelper {
@@ -13,6 +18,7 @@ class MetatagAppLinksTest extends MetatagTestHelper {
       'name' => 'Metatag AppLinks tests',
       'description' => 'Test the Metatag:AppLinks module.',
       'group' => 'Metatag',
+      'dependencies' => array('ctools', 'devel', 'token'),
     );
   }
 

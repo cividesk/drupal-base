@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Metatag module for the direct Panels integration.
+ */
+
+/**
  * Tests for the Metatag module for the direct Panels integration.
  */
 class MetatagPanelsTest extends MetatagTestHelper {
@@ -13,7 +18,7 @@ class MetatagPanelsTest extends MetatagTestHelper {
       'name' => 'Metatag:Panels tests',
       'description' => 'Test Metatag integration via the Metatag:Panels module.',
       'group' => 'Metatag',
-      'dependencies' => array('ctools', 'token', 'panels', 'page_manager'),
+      'dependencies' => array('ctools', 'devel', 'token', 'panels', 'page_manager'),
     );
   }
 
@@ -51,6 +56,11 @@ class MetatagPanelsTest extends MetatagTestHelper {
     $xpath = $this->xpath("//meta[@name='keywords']");
     $this->assertEqual(count($xpath), 1, 'Exactly one keywords meta tag found.');
     $this->assertEqual($xpath[0]['content'], 'Test, page, keywords');
+
+    // Test the abstract meta tag.
+    $xpath = $this->xpath("//meta[@name='abstract']");
+    $this->assertEqual(count($xpath), 1, 'Exactly one abstract meta tag found.');
+    $this->assertEqual($xpath[0]['content'], 'http://www.example.com/user/1/full-bio-(1).pdf');
   }
 
   // @todo Test an in-db page.

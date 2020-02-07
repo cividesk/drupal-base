@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Tests for the Search API integration.
+ */
+
+/**
  * Tests for the Search API integration.
  */
 class MetatagCoreWithSearchAPITest extends MetatagTestHelper {
@@ -34,7 +39,7 @@ class MetatagCoreWithSearchAPITest extends MetatagTestHelper {
       'name' => 'Metatag Search API tests',
       'description' => 'Tests the Metatag Search API integration.',
       'group' => 'Metatag',
-      'dependencies' => array('ctools', 'token', 'entity', 'search_api'),
+      'dependencies' => array('ctools', 'devel', 'token', 'entity', 'search_api'),
     );
   }
 

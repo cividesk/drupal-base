@@ -17,14 +17,14 @@ module_load_include('inc', 'webform_civicrm', 'includes/utils');
  */
 abstract class wf_crm_webform_base {
   protected $node;
-  protected $settings = array();
-  protected $enabled = array();
-  protected $data = array();
-  protected $ent = array();
-  protected $events = array();
-  protected $line_items = array();
-  protected $membership_types = array();
-  protected $loadedContacts = array();
+  protected $settings = [];
+  protected $enabled = [];
+  protected $data = [];
+  protected $ent = [];
+  protected $events = [];
+  protected $line_items = [];
+  protected $membership_types = [];
+  protected $loadedContacts = [];
 
   // No direct access - storage for variables fetched via __get
   private $_payment_processor;
@@ -45,21 +45,22 @@ abstract class wf_crm_webform_base {
   function __get($name) {
     switch ($name) {
       case 'payment_processor':
+        $this->fixPaymentProcessorID();
         $payment_processor_id = wf_crm_aval($this->data, 'contribution:1:contribution:1:payment_processor_id');
         if ($payment_processor_id && !$this->_payment_processor) {
-          $this->_payment_processor = wf_civicrm_api('payment_processor', 'getsingle', array('id' => $payment_processor_id));
+          $this->_payment_processor = wf_civicrm_api('payment_processor', 'getsingle', ['id' => $payment_processor_id]);
         }
         return $this->_payment_processor;
 
       case 'contribution_page':
         $contribution_page_id = wf_crm_aval($this->data, 'contribution:1:contribution:1:contribution_page_id');
         if ($contribution_page_id && !$this->_contribution_page) {
-          $this->_contribution_page = wf_civicrm_api('contribution_page', 'getsingle', array('id' => $contribution_page_id));
+          $this->_contribution_page = wf_civicrm_api('contribution_page', 'getsingle', ['id' => $contribution_page_id]);
         }
         return $this->_contribution_page;
 
       case 'tax_rate':
-        $taxSettings = CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::CONTRIBUTE_PREFERENCES_NAME, 'contribution_invoice_settings');
+        $taxSettings = wf_crm_get_civi_setting('contribution_invoice_settings');
         if (is_array($taxSettings) && !empty($taxSettings['invoicing'])) {
           if ($this->contribution_page) {
             // tax integration
@@ -90,11 +91,11 @@ abstract class wf_crm_webform_base {
    * @return array
    *   Contact data
    */
-  protected function loadContact($c, $exclude = array()) {
+  protected function loadContact($c, $exclude = []) {
     if (!empty($this->loadedContacts[$c])) {
       return $this->loadedContacts[$c];
     }
-    $info = array();
+    $info = [];
     $cid = $this->ent['contact'][$c]['id'];
     if (!$cid) {
       return $info;
@@ -102,10 +103,10 @@ abstract class wf_crm_webform_base {
     $contact = $this->data['contact'][$c];
     $prefix = 'civicrm_' . $c . '_contact_1_';
     $existing_contact_field = $this->getComponent($prefix . 'contact_existing');
-    $exclude = array_merge($exclude, wf_crm_aval($existing_contact_field['extra'], 'no_autofill', array()));
-    foreach (array_merge(array('contact'), wf_crm_location_fields()) as $ent) {
+    $exclude = array_merge($exclude, wf_crm_aval($existing_contact_field['extra'], 'no_autofill', []));
+    foreach (array_merge(['contact'], wf_crm_location_fields()) as $ent) {
       if ((!empty($contact['number_of_' . $ent]) && !in_array($ent, $exclude)) || $ent == 'contact') {
-        $params = array('contact_id' => $cid);
+        $params = ['contact_id' => $cid];
         if ($ent != 'contact' && $ent != 'website') {
           $params['options']['sort'] = 'is_primary DESC';
         }
@@ -116,7 +117,7 @@ abstract class wf_crm_webform_base {
         }
         if (!empty($result['values'])) {
           // Index array from 1 instead of 0
-          $result = array_merge(array(0), array_values($result['values']));
+          $result = array_merge([0], array_values($result['values']));
           unset($result[0]);
           if ($ent == 'contact') {
             // Exclude name fields
@@ -168,14 +169,14 @@ abstract class wf_crm_webform_base {
     foreach ($contact as $k => $v) {
       if (substr($k, 0, 12) == 'number_of_cg' && !empty($v)) {
         if (!in_array(substr($k, 10), $exclude)) {
-          $info += $this->getCustomData($cid);
+          $info += array_diff_key($this->getCustomData($cid), array_flip($exclude));
           break;
         }
       }
     }
     // Retrieve group and tag data
     if (!in_array('other', $exclude)) {
-      $api = array('tag' => 'entity_tag', 'group' => 'group_contact');
+      $api = ['tag' => 'entity_tag', 'group' => 'group_contact'];
       foreach (array_keys($this->enabled) as $fid) {
         // This way we support multiple tag fields (for tagsets)
         if (strpos($fid, $prefix . 'other') !== FALSE) {
@@ -183,7 +184,7 @@ abstract class wf_crm_webform_base {
           list(, , , , , $field) = explode('_', $fid, 6);
           // Cheap way to avoid fetching the same data twice from the api
           if (!is_array($api[$ent])) {
-            $api[$ent] = wf_civicrm_api($api[$ent], 'get', array('contact_id' => $cid));
+            $api[$ent] = wf_civicrm_api($api[$ent], 'get', ['contact_id' => $cid]);
           }
           foreach (wf_crm_aval($api[$ent], 'values') as $val) {
             $info['other'][1][$field][] = $val[$ent . '_id'];
@@ -195,7 +196,7 @@ abstract class wf_crm_webform_base {
     if (!in_array('relationship', $exclude) && !empty($contact['number_of_relationship'])) {
       $this->enabled = wf_crm_enabled_fields($this->node);
       for ($r = 1; $r <= $contact['number_of_relationship']; ++$r) {
-        $types = array();
+        $types = [];
         $prefix = "civicrm_{$c}_contact_{$r}_relationship_";
         if (!empty($this->ent['contact'][$r]['id'])) {
           if (!empty($contact['relationship'][$r]['relationship_type_id']) && $contact['relationship'][$r]['relationship_type_id'] != 'create_civicrm_webform_element') {
@@ -208,19 +209,6 @@ abstract class wf_crm_webform_base {
         $rel = $this->getRelationship($types, $cid, wf_crm_aval($this->ent['contact'], "$r:id"));
         if ($rel) {
           $info['relationship'][$r] = $rel;
-          // Fetch custom data
-          $len = strlen($prefix . 'custom_');
-          foreach ($this->enabled as $k => $v) {
-            if (substr($k, 0, $len) == $prefix . 'custom_') {
-              $custom = wf_civicrm_api('custom_value', 'get', array('entity_id' => $rel['id'], 'entity_table' => 'Relationship'));
-              foreach ($custom['values'] as $k => $v) {
-                if (isset($v[0])) {
-                  $info['relationship'][$r]["custom_$k"] = $v[0];
-                }
-              }
-              break;
-            }
-          }
         }
       }
     }
@@ -257,15 +245,15 @@ abstract class wf_crm_webform_base {
       }
     }
     if (empty($this->ent['contact'][$c]['id'])) {
-      $found = array();
+      $found = [];
       switch ($component['extra']['default']) {
         case 'user':
           $cid = wf_crm_user_cid();
-          $found = ($c == 1 && $cid) ? array($cid) : array();
+          $found = ($c == 1 && $cid) ? [$cid] : [];
           break;
         case 'contact_id':
           if ($component['extra']['default_contact_id']) {
-            $found = array($component['extra']['default_contact_id']);
+            $found = [$component['extra']['default_contact_id']];
           }
           break;
         case 'relationship':
@@ -283,7 +271,7 @@ abstract class wf_crm_webform_base {
         case 'case_roles':
           $to = $component['extra']['default_relationship_to'];
           $case = $component['extra']['default_for_case'];
-          if (empty($this->ent['contact'][$c]['id'])) {
+          if (empty($this->ent['contact'][$c]['id']) && $component['extra']['default_case_roles'] == 'case_client') {
             // load case client of case (if passed in URL) as default contact
             $this->findCaseClientForDefaultContact($c);
           }
@@ -297,13 +285,13 @@ abstract class wf_crm_webform_base {
           break;
         case 'auto':
           $component['extra']['allow_create'] = FALSE;
-          $found = array_keys(wf_crm_contact_search($this->node, $component, $filters, wf_crm_aval($this->ent, 'contact', array())));
+          $found = array_keys(wf_crm_contact_search($this->node, $component, $filters, wf_crm_aval($this->ent, 'contact', [])));
           break;
       }
       if ($component['extra']['randomize']) {
         shuffle($found);
       }
-      if (in_array($component['extra']['default'], array('user', 'contact_id'))) {
+      if (in_array($component['extra']['default'], ['user', 'contact_id'])) {
         $dupes_allowed = TRUE;
       }
       else {
@@ -335,8 +323,8 @@ abstract class wf_crm_webform_base {
    * @param array $values
    * @return array $reorderedArray
    */
-  protected function reorderByLocationType($c, $ent, $values = array()){
-    $reorderedArray = array();
+  protected function reorderByLocationType($c, $ent, $values = []){
+    $reorderedArray = [];
 
     if (isset($this->settings['data']['contact'][$c][$ent])){
       // First pass
@@ -373,7 +361,7 @@ abstract class wf_crm_webform_base {
     foreach ($settingsArray[$ent] as $setting) {
       $valueFound = false;
       foreach($values as $key => $value){
-        if ((in_array($ent, array('address', 'email')) && $value['location_type_id'] == $setting['location_type_id'])
+        if ((in_array($ent, ['address', 'email']) && $value['location_type_id'] == $setting['location_type_id'])
           || (
              $value['location_type_id'] == $setting['location_type_id'] &&
              (!isset($setting[$ent.'_type_id']) || $value[$ent.'_type_id'] == $setting[$ent.'_type_id'])
@@ -396,7 +384,7 @@ abstract class wf_crm_webform_base {
       // always keep number of returned values equal to chosen settings
       // if value is not found then set an empty array
       if (!$valueFound){
-        $reorderedArray[] = array();
+        $reorderedArray[] = [];
       }
     }
     return $reorderedArray;
@@ -440,7 +428,7 @@ abstract class wf_crm_webform_base {
       // always keep number of returned values equal to chosen settings
       // if value is not found then set an empty array
       if (!$valueFound){
-        $reorderedArray[] = array();
+        $reorderedArray[] = [];
       }
     }
     return $reorderedArray;
@@ -470,7 +458,7 @@ abstract class wf_crm_webform_base {
    * @param array $settings
    * @return array $settings
    */
-  protected function add_user_select_field_placeholder($ent, $settings = array()){
+  protected function add_user_select_field_placeholder($ent, $settings = []){
     if ($settings['number_of_'.$ent] > count($settings[$ent])){
       for($i = 1; $i <= $settings['number_of_'.$ent]; $i++){
         if (!array_key_exists($i, $settings[$ent])){
@@ -494,39 +482,40 @@ abstract class wf_crm_webform_base {
    * @return array
    */
   protected function getRelationship($r_types, $cid1, $cid2) {
-    $found = array();
-    $active_clause = '';
-    if (!empty($this->settings['create_new_relationship'])) {
-      $active_clause = 'AND is_active = 1 AND (end_date IS NULL OR end_date >= now())';
-    }
+    $found = [];
+    $active_only = !empty($this->settings['create_new_relationship']);
     if ($r_types && $cid1 && $cid2) {
-      $types = array();
+      $types = [];
       foreach ($r_types as $r_type) {
         list($type, $side) = explode('_', $r_type);
         $types[$type] = $type;
       }
-      $sql = "SELECT * FROM civicrm_relationship
-      WHERE relationship_type_id IN (" . implode(',', $types) . ")
-      AND ((contact_id_a = $cid1 AND contact_id_b = $cid2) OR (contact_id_a = $cid2 AND contact_id_b = $cid1)) $active_clause
-      ORDER BY is_active DESC, IF(end_date, 1, 0), end_date DESC";
-      $dao = CRM_Core_DAO::executeQuery($sql);
-      while ($dao->fetch()) {
-        $type = $dao->relationship_type_id;
-        $side = $dao->contact_id_a == $cid1 ? 'a' : 'b';
-        // Verify this is the correct orientation for the relationship
-        if (in_array("{$type}_$side", $r_types) || in_array("{$type}_r", $r_types)) {
-          // Discard metadata from the query
-          foreach ((array) $dao as $k => $v) {
-            if ($k[0] != '_' && $k != 'N' && $k != 'relationship_type_id') {
-              $found[$k] = $v;
-            }
-          }
+      $params = [
+        'contact_id_a' => ['IN' => [$cid1, $cid2]],
+        'contact_id_b' => ['IN' => [$cid1, $cid2]],
+        'relationship_type_id' => ['IN' => $types],
+      ];
+      if ($active_only) {
+        $params['is_active'] = 1;
+        $params['options']['sort'] = 'is_active DESC, end_date ASC';
+      }
+      foreach (wf_crm_apivalues('relationship', 'get', $params) as $rel) {
+        $type = $rel['relationship_type_id'];
+        $side = $rel['contact_id_a'] == $cid1 ? 'a' : 'b';
+        if (
+          // Verify relationship orientation
+          (in_array("{$type}_$side", $r_types) || in_array("{$type}_r", $r_types))
+          // Verify 2 contacts are different unless we're specifically looking for a self-relationship
+          && ($rel['contact_id_a'] != $rel['contact_id_b'] || $cid1 == $cid2)
+          // Verify end date is not past when searching for active only
+          && (empty($rel['end_date']) || !$active_only || strtotime($rel['end_date']) > time())
+        ) {
           // Support multi-valued relationship type fields, fudge the rest
           $found['relationship_type_id'][] = in_array("{$type}_r", $r_types) ? "{$type}_r" : "{$type}_$side";
-          $found['relationship_permission'] = ($found['is_permission_a_b'] ? 1 : 0) + ($found['is_permission_b_a'] ? 2 : 0);
+          $found['relationship_permission'] = (!empty($rel['is_permission_a_b']) ? 1 : 0) + (!empty($rel['is_permission_b_a']) ? 2 : 0);
+          $found += $rel;
         }
       }
-      $dao->free();
     }
     return $found;
   }
@@ -541,7 +530,7 @@ abstract class wf_crm_webform_base {
    *
    * @return array
    */
-  protected function getExposedOptions($field_key, $exclude = array()) {
+  protected function getExposedOptions($field_key, $exclude = []) {
     $field = $this->getComponent($field_key);
 
     if ($field && $field['type'] == 'hidden') {
@@ -567,7 +556,7 @@ abstract class wf_crm_webform_base {
       }
       return $exposed;
     }
-    return array();
+    return [];
   }
 
   /**
@@ -591,21 +580,23 @@ abstract class wf_crm_webform_base {
     static $status_types;
     static $membership_types;
     if (!isset($membership_types)) {
-      $membership_types = array_keys(wf_crm_apivalues('membershipType', 'get', array('is_active' => 1, 'return' => 'id')));
+      $membership_types = array_keys(wf_crm_apivalues('membershipType', 'get', ['is_active' => 1, 'return' => 'id']));
     }
-    $existing = wf_crm_apivalues('membership', 'get', array(
+    $existing = wf_crm_apivalues('membership', 'get', [
       'contact_id' => $cid,
       // Limit to only enabled membership types
-      'membership_type_id' => array('IN' => $membership_types),
-    ));
+      'membership_type_id' => ['IN' => $membership_types],
+      // skip membership through Inheritance.
+      'owner_membership_id' => ['IS NULL' => 1],
+    ]);
     if (!$existing) {
-      return array();
+      return [];
     }
     if (!$status_types) {
       $status_types = wf_crm_apivalues('membership_status', 'get');
     }
     // Attempt to order memberships by most recent and active
-    $active = $expired = array();
+    $active = $expired = [];
     foreach ($existing as $membership) {
       $membership['is_active'] = $status_types[$membership['status_id']]['is_current_member'];
       $membership['status'] = $status_types[$membership['status_id']]['label'];
@@ -617,37 +608,18 @@ abstract class wf_crm_webform_base {
 
   /**
    * Fetch info and remaining spaces for events
-   *
-   * @param $events
-   *   Array of event info to fill (reference)
    */
   protected function loadEvents() {
     if (!empty($this->events)) {
       $now = time();
-      // Fetch event info
-      $dao = CRM_Core_DAO::executeQuery('SELECT id, title, start_date, end_date, event_type_id, max_participants, financial_type_id
-      FROM civicrm_event WHERE id IN (' . implode(',', array_keys($this->events)) . ')');
-      while ($dao->fetch()) {
-        $this->events[$dao->id]['title'] = $dao->title;
-        $this->events[$dao->id]['start_date'] = $dao->start_date;
-        $this->events[$dao->id]['end_date'] = $dao->end_date;
-        $this->events[$dao->id]['event_type_id'] = $dao->event_type_id;
-        $this->events[$dao->id]['financial_type_id'] = $dao->financial_type_id;
-        $this->events[$dao->id]['full'] = FALSE;
-        $this->events[$dao->id]['ended'] = $dao->end_date && strtotime($dao->end_date) < $now;
-        if ($this->events[$dao->id]['max_participants'] = $dao->max_participants) {
-          $remaining = CRM_Event_BAO_Participant::eventFull($dao->id, TRUE, FALSE);
-          if (is_string($remaining)) {
-            $this->events[$dao->id]['full'] = TRUE;
-            $this->events[$dao->id]['remaining'] = 0;
-            $this->events[$dao->id]['full_message'] = $remaining;
-          }
-          else {
-            $this->events[$dao->id]['remaining'] = $remaining ? $remaining : $dao->max_participants;
-          }
-        }
+      $events = wf_crm_apivalues('Event', 'get', [
+        'return' => ['title', 'start_date', 'end_date', 'event_type_id', 'max_participants', 'financial_type_id', 'event_full_text', 'is_full'],
+        'id' => ['IN' => array_keys($this->events)],
+      ]);
+      foreach ($events as $id => $event) {
+        $this->events[$id] = $event + $this->events[$id] + ['available_places' => 0];
+        $this->events[$id]['ended'] = !empty($event['end_date']) && strtotime($event['end_date']) < $now;
       }
-      $dao->free();
     }
   }
 
@@ -664,7 +636,7 @@ abstract class wf_crm_webform_base {
    * @return array
    */
   protected function getCustomData($entity_id, $entity_type = NULL, $normalize = TRUE) {
-    static $parents = array();
+    static $parents = [];
     if (empty($parents)) {
       // Create matching table to sort fields by group
       foreach (wf_crm_get_fields() as $key => $value) {
@@ -674,34 +646,23 @@ abstract class wf_crm_webform_base {
         }
       }
     }
-    $params = array('entityID' => $entity_id);
+    $params = ['entity_id' => $entity_id];
     if ($entity_type) {
-      $params['entityType'] = ucfirst($entity_type);
+      $params['entity_table'] = ucfirst($entity_type);
     }
-    $result = CRM_Core_BAO_CustomValueTable::getValues($params);
-    if (!empty($result['is_error'])) {
-      return array();
-    }
-    unset($result['is_error'], $result['entityID']);
-    $values = array();
-    // Convert multi-value strings to arrays and sort by group
+    $result = wf_crm_apivalues('CustomValue', 'get', $params);
+    $values = [];
     foreach ($result as $key => $value) {
-      $pieces = explode('_', $key);
-      if ($pieces[0] == 'custom') {
-        $name = 'custom_' . $pieces[1];
-        if (empty($pieces[2])) {
-          $pieces[2] = ($normalize ? 1 : 0);
+      $name = 'custom_' . $key;
+      // Sort into groups
+      if (isset($parents[$name])) {
+        $n = 1;
+        foreach ($value as $id => $item) {
+          // Non-numeric keys are api extras like "id" and "latest"
+          if (is_numeric($id)) {
+            $values[$parents[$name]][$normalize ? $n++ : $id][$name] = $item;
+          }
         }
-        if (isset($parents[$name])) {
-          $values[$parents[$name]][$pieces[2]][$name] = $value;
-        }
-      }
-    }
-    if ($normalize) {
-      // Normalize array keys
-      foreach ($values as &$value) {
-        array_unshift($value, 0);
-        unset($value[0]);
       }
     }
     return $values;
@@ -724,15 +685,15 @@ abstract class wf_crm_webform_base {
    */
   protected function saveCustomData($entity, $entity_id, $entity_type, $known = TRUE, $contact_index = 1) {
     $existing = FALSE;
-    $params = array('entityID' => $entity_id);
-    $createMultiValues = array();
+    $params = ['entityID' => $entity_id];
+    $createMultiValues = [];
 
     foreach ($entity as $table => $values) {
       if (substr($table, 0, 2) == 'cg' && is_array($values)) {
         if ($existing === FALSE) {
           $existing = $this->getCustomData($entity_id, $entity_type, FALSE);
         }
-        $existing += array($table => array());
+        $existing += [$table => []];
         $insert = 0;
 
         foreach ($values as $valuesIndex => $custom) {
@@ -760,7 +721,7 @@ abstract class wf_crm_webform_base {
             $multiValueSuffix = '';
           }
 
-          $customGroupParams = array();
+          $customGroupParams = [];
 
           foreach ($custom as $k => $v) {
             // Only save if this is not blank or data already exists and record is known
@@ -787,7 +748,7 @@ abstract class wf_crm_webform_base {
     if (!empty($createMultiValues)) {
       // Add new values.
       foreach ($createMultiValues as $multiValuesSet) {
-        $this->saveCustomValues($entity_id, array_merge($multiValuesSet, array('entityID' => $entity_id)), TRUE);
+        $this->saveCustomValues($entity_id, array_merge($multiValuesSet, ['entityID' => $entity_id]), TRUE);
       }
     }
   }
@@ -818,11 +779,11 @@ abstract class wf_crm_webform_base {
       $bt = debug_backtrace();
       array_shift($params);
       foreach ($params as $k => $v) {
-        $single_param = array('entityID' => $entity_id, $k => $v);
+        $single_param = ['entityID' => $entity_id, $k => $v];
         $result = CRM_Core_BAO_CustomValueTable::setValues($single_param);
         if (!empty($result['is_error'])) {
           $file = explode('/', $bt[0]['file']);
-          watchdog('webform_civicrm', 'The CiviCRM "CustomValueTable::setValues" function returned the error: "%msg" when called by line !line of !file with the following parameters: "!params"', array('%msg' => $result['error_message'], '!line' => $bt[0]['line'], '!file' => array_pop($file), '!params' => print_r($single_param, TRUE)), WATCHDOG_ERROR);
+          watchdog('webform_civicrm', 'The CiviCRM "CustomValueTable::setValues" function returned the error: "%msg" when called by line !line of !file with the following parameters: "!params"', ['%msg' => $result['error_message'], '!line' => $bt[0]['line'], '!file' => array_pop($file), '!params' => print_r($single_param, TRUE)], WATCHDOG_ERROR);
         }
       }
     }
@@ -853,7 +814,7 @@ abstract class wf_crm_webform_base {
    */
   function findCaseForContact($cid, $filters) {
     $case = NULL;
-    foreach (wf_crm_apivalues('case', 'get', array('client_id' => $cid)) as $item) {
+    foreach (wf_crm_apivalues('case', 'get', ['client_id' => $cid]) as $item) {
       if (empty($item['is_deleted'])) {
         $match = TRUE;
         foreach (array_filter($filters) as $filter => $value) {
@@ -891,7 +852,7 @@ abstract class wf_crm_webform_base {
       $credit_card_types = CRM_Core_Payment_Form::getCreditCardCSSNames();
       CRM_Core_Resources::singleton()
         ->addCoreResources()
-        ->addSetting(array('config' => array('creditCardTypes' => $credit_card_types)))
+        ->addSetting(['config' => ['creditCardTypes' => $credit_card_types]])
         ->addScriptFile('civicrm', 'templates/CRM/Core/BillingBlock.js', -10, 'html-header');
     }
     else {
@@ -912,10 +873,10 @@ abstract class wf_crm_webform_base {
       $config = CRM_Core_Config::singleton();
       $path = file_unmanaged_copy($file->uri, $config->customFileUploadDir);
       if ($path) {
-        $result = wf_civicrm_api('file', 'create', array(
+        $result = wf_civicrm_api('file', 'create', [
           'uri' => str_replace($config->customFileUploadDir, '', $path),
           'mime_type' => $file->filemime,
-        ));
+        ]);
         return wf_crm_aval($result, 'id');
       }
     }
@@ -936,25 +897,20 @@ abstract class wf_crm_webform_base {
       return NULL;
     }
     if ($fieldName === 'image_URL') {
-      return array(
+      return [
         'data_type' => 'File',
         'name' => NULL,
         'icon' => $val,
-      );
+      ];
     }
-    $file = wf_crm_apivalues('file', 'get', $val);
-    $entity_id = '';
-    if ($entity && $n && (strpos($fieldName, 'custom_') === 0 || strpos($fieldName, 'file_') === 0)) {
-      $entity_id = $this->ent[$entity][$n]['id'];
-    }
+    $file = wf_crm_apivalues('Attachment', 'get', $val);
     if (!empty($file[$val])) {
-      $fileHash = is_callable(array('CRM_Core_BAO_File', 'generateFileHash')) ? '&fcs=' . CRM_Core_BAO_File::generateFileHash($entity_id, $val) : '';
-      return array(
+      return [
         'data_type' => 'File',
-        'name' => CRM_Utils_File::cleanFileName($file[$val]['uri']),
-        'file_url'=> CRM_Utils_System::url('civicrm/file', "reset=1&id={$val}&eid={$entity_id}{$fileHash}", TRUE),
-        'icon' => file_icon_url((object) array('filemime' => $file[$val]['mime_type'])),
-      );
+        'name' => $file[$val]['name'],
+        'file_url'=> $file[$val]['url'],
+        'icon' => file_icon_url((object) ['filemime' => $file[$val]['mime_type']]),
+      ];
     }
     return NULL;
   }
@@ -979,10 +935,10 @@ abstract class wf_crm_webform_base {
    */
   public function getAttachments($ent, $id) {
     $n = 1;
-    $attachments = array();
+    $attachments = [];
     $dao = CRM_Core_DAO::executeQuery("SELECT * FROM civicrm_entity_file WHERE entity_table = 'civicrm_$ent' AND entity_id = $id");
     while ($dao->fetch()) {
-      $attachments[$n++] = array('id' => $dao->id, 'file_id' => $dao->file_id);
+      $attachments[$n++] = ['id' => $dao->id, 'file_id' => $dao->file_id];
     }
     return $attachments;
   }
@@ -993,6 +949,24 @@ abstract class wf_crm_webform_base {
    */
   public function getQfKey() {
     return CRM_Core_Key::get('CRM_Contribute_Controller_Contribution', TRUE);
+  }
+
+  /**
+   * Historically webform_civicrm was configured with the live payment processor ID and the is_test flag.
+   * But this is not how CiviCRM expects it to work and this can cause problems where payments use the live processor
+   *   instead of test.  So we "fix" the processor ID here to be the correct one for live/test.
+   * An "improved" fix would involve changing the configuration saved by the user but this avoids that.
+   *
+   * @throws \CiviCRM_API3_Exception
+   */
+  protected function fixPaymentProcessorID() {
+    // Check for is_test and payment_processor_id (pay later = 0 is set to '' here. is_test has no meaning for pay later).
+    if (!empty($this->data['contribution'][1]['contribution'][1]['is_test'])
+        && !empty($this->data['contribution'][1]['contribution'][1]['payment_processor_id'])) {
+      $paymentProcessor = \Civi\Payment\System::singleton()->getById($this->data['contribution'][1]['contribution'][1]['payment_processor_id']);
+      $paymentProcessor = \Civi\Payment\System::singleton()->getByName($paymentProcessor->getPaymentProcessor()['name'], TRUE);
+      $this->data['contribution'][1]['contribution'][1]['payment_processor_id'] = $paymentProcessor->getPaymentProcessor()['id'];
+    }
   }
 
 }

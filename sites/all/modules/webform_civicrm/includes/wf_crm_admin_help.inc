@@ -124,7 +124,7 @@ class wf_crm_admin_help {
   public static function contribution_contribution_page_id() {
     print '<p>' .
       t("It is recommended to <a !link>create a new contribution page</a> solely for webform use. When configuring the page, most options will be irrelevant (such as profiles, premiums, widgets, recurring, etc.). Only the following need to be configured:",
-        array('!link' => 'target="_blank" href="' . url('civicrm/admin/contribute/add', array('query' => array('reset' => 1, 'action' => 'add'))) . '"')) .
+        ['!link' => 'target="_blank" href="' . url('civicrm/admin/contribute/add', ['query' => ['reset' => 1, 'action' => 'add']]) . '"']) .
       '</p><ul>' .
       '<li>' . t('Title: Displayed on the webform.') . '</li>' .
       '<li>' . t('Financial Type: Controls overall contribution type.') . '</li>' .
@@ -138,8 +138,6 @@ class wf_crm_admin_help {
   public static function contribution_payment_processor_id() {
     print '<p>' .
       t('Supported payment processors enabled on the contribution page are available here. "Pay Later" option allows the user to purchase events/memberships without entering a credit card.') .
-      '</p><p>' .
-      t("Note that only on-site credit card processors are currently supported on Webforms. Services that redirect to an external website, such as Paypal Standard, are not supported. Recurring payments are not supported.") .
       '</p>';
   }
 
@@ -252,9 +250,9 @@ class wf_crm_admin_help {
     print '<p>' .
       t('Allow events in "User Select" mode to be auto-filled from URL.') .
       '</p>'.'<br /><p>'.t('Example for "Register all":') .
-      '<br /><code>' . url("node", array('absolute' => TRUE)) . '/{node.nid}?event1={event1.event_id},{event2.event_id}</code></p><br />'.
+      '<br /><code>' . url("node", ['absolute' => TRUE]) . '/{node.nid}?event1={event1.event_id},{event2.event_id}</code></p><br />'.
       t('Example for "Register separately":') .
-      '<br /><code>' . url("node", array('absolute' => TRUE)) .
+      '<br /><code>' . url("node", ['absolute' => TRUE]) .
       '/{node.nid}?c1event1={event1.event_id},{event2.event_id}&amp;c2event1={event3.event_id}</code></p>';
   }
 
@@ -279,7 +277,7 @@ class wf_crm_admin_help {
   public static function reg_options_title_display() {
     print '<p>' .
       t('Controls how events are displayed. Date formats can be further configured in <a !link>CiviCRM Date Settings</a>',
-        array('!link' => 'target="_blank" href="' . url('civicrm/admin/setting/date', array('query' => array('reset' => 1))) . '"')
+        ['!link' => 'target="_blank" href="' . url('civicrm/admin/setting/date', ['query' => ['reset' => 1]]) . '"']
       ) .
       '</p><p>' .
       t('Note: End-date will automatically be omitted if it is the same as the start-date.') .
@@ -350,7 +348,7 @@ class wf_crm_admin_help {
   public static function activity_assignee_contact_id() {
     civicrm_initialize();
     print '<p>';
-    if (CRM_Core_BAO_Setting::getItem(CRM_Core_BAO_Setting::SYSTEM_PREFERENCES_NAME, 'activity_assignee_notification')) {
+    if (wf_crm_get_civi_setting('activity_assignee_notification')) {
       print t('A copy of this activity will be emailed to the assignee.');
     }
     else {
@@ -374,11 +372,33 @@ class wf_crm_admin_help {
       '</p>';
   }
 
+  public static function case_case_type_id() {
+    print '<p>' .
+      t('You can select the case type for your case here, or configure this to be "User Select".') .
+      '</p><p>' .
+      t('When "User Select" is chosen a new Drupal field component will be added where you can configure the behaviour of this field in more detail.') .
+      '<p></p>' .
+      t('Also note that setting this field will update the case type of any cases which are autoloaded by the form. ').
+      t('This may have undesirable consequences in some situations where, for example, certain custom fields no longer exist on ').
+      t('the new case type and could lead to data being inaccessible within the CiviCase user interface after the case type has changed.').
+      '</p>';
+  }
+
   public static function existing_case_status() {
     print '<p>' .
       t('If a matching case of the chosen type already exists for the client, it will be autofilled and updated.') .
       '</p><p>' .
       t('Note: a case can also be autofilled by passing "case1", etc. in the url.') .
+      '</p>';
+  }
+
+  public static function duplicate_case_status() {
+    print '<p>' .
+      t('Choosing this option means a new case will always be created even when an existing case has been selected. If an existing case has been selected the data for this case will NOT be updated.') .
+      '</p><p>' .
+      t('Useful if you want to pre-fill a form with existing case data, allow the user to make updates and then create a new case with their updates.') .
+      '</p><p>' .
+      t('Note: Populate the existing case by selecting an option from the Update Existing Case drop-down or by passing "case1=[caseid]" in the url etc.') .
       '</p>';
   }
 
@@ -473,7 +493,7 @@ class wf_crm_admin_help {
     }
     civicrm_initialize();
     module_load_include('inc', 'webform_civicrm', 'includes/utils');
-    $info = wf_civicrm_api('custom_field', 'getsingle', array('id' => $id));
+    $info = wf_civicrm_api('custom_field', 'getsingle', ['id' => $id]);
     if (!empty($info['help_pre'])) {
       print '<p>' . $info['help_pre'] . '</p>';
     }

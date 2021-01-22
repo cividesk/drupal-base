@@ -106,9 +106,9 @@ class MailTestCase extends DrupalWebTestCase implements MailSystemInterface {
       // ASCII with html entity.
       'Test &amp; site' => 'Test & site',
       // Non-ASCII characters.
-      'TÃ©st site' => '=?UTF-8?B?VMOpc3Qgc2l0ZQ==?=',
+      'Tést site' => '=?UTF-8?B?VMOpc3Qgc2l0ZQ==?=',
       // Non-ASCII with special characters.
-      'TÃ©st; site' => '=?UTF-8?B?VMOpc3Q7IHNpdGU=?=',
+      'Tést; site' => '=?UTF-8?B?VMOpc3Q7IHNpdGU=?=',
       // Non-ASCII with html entity.
       'T&eacute;st; site' => '=?UTF-8?B?VMOpc3Q7IHNpdGU=?=',
       // ASCII with special characters.

@@ -1,0 +1,207 @@
+<?php
+
+/**
+ * @file
+ * This module allows to use different themes than the site default on specific
+ * pages.
+ */
+
+
+/**
+ * Implements hook_help().
+ */
+function page_theme_help($path, $arg) {
+
+  switch ($path) {
+
+    case 'admin/help#page_theme':
+      $output = '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The Page Theme module is a simple and easy module to use which allows you to use different themes than the site default on specific pages. For more information, see the online handbook entry for <a href="@page_theme">Page Theme module</a>.', array('@page_theme' => 'http://drupal.org/project/page_theme')) . '</p>';
+      return $output;
+
+    case 'admin/structure/page-theme':
+      $output = '<p>' . t('If pages are several defined, the first theme in the list will be used.') . '</p>';
+      $output .= '<p>' . t('Only themes, which are enabled in the <a href="@themes_section">themes section</a>, will be used otherwise the site default theme.', array('@themes_section' => url('admin/appearance'))) . '</p>';
+      return $output;
+  }
+}
+
+
+/**
+ * Implements hook_permission().
+ */
+function page_theme_permission() {
+
+  $perm = array();
+  $perm['administer page theme'] = array(
+    'title' => t('Administer page theme settings'),
+  );
+
+  return $perm;
+}
+
+
+/**
+ * Implements hook_menu().
+ */
+function page_theme_menu() {
+
+  $menu = array();
+  $menu['admin/structure/page-theme'] = array(
+    'title' => 'Page theme',
+    'description' => 'Configure which theme is used on which pages.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('page_theme_admin_overview'),
+    'access arguments' => array('administer page theme'),
+    'file' => 'page_theme.admin.inc',
+  );
+  $menu['admin/structure/page-theme/add'] = array(
+    'title' => 'Add theme',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('page_theme_admin_add'),
+    'access callback' => 'page_theme_menu_access_add',
+    'access arguments' => array('administer page theme'),
+    'type' => MENU_LOCAL_ACTION,
+    'weight' => 1,
+    'file' => 'page_theme.admin.inc',
+  );
+  $menu['admin/structure/page-theme/manage/%page_theme'] = array(
+    'title' => 'Configure theme',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('page_theme_admin_edit', 4),
+    'access arguments' => array('administer page theme'),
+    'file' => 'page_theme.admin.inc',
+  );
+  $menu['admin/structure/page-theme/manage/%page_theme/configure'] = array(
+    'title' => 'Configure theme',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
+  );
+  $menu['admin/structure/page-theme/manage/%page_theme/delete'] = array(
+    'title' => 'Delete theme',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('page_theme_admin_delete', 4),
+    'access arguments' => array('administer page theme'),
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_NONE,
+    'file' => 'page_theme.admin.inc',
+  );
+
+  return $menu;
+}
+
+function page_theme_menu_access_add($perm) {
+
+  $theme_options = page_theme_get_themes_options();
+  return user_access($perm) && count($theme_options) > 1;
+}
+
+function page_theme_load($theme) {
+
+  $page_theme = db_query('SELECT theme, pages, status, weight FROM {page_theme} WHERE theme = :theme', array(':theme' => $theme))
+    ->fetchObject();
+  return $page_theme;
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+function page_theme_theme() {
+
+  $theme = array();
+  $theme['page_theme_admin_overview'] = array(
+    'render element' => 'form',
+    'file' => 'page_theme.admin.inc',
+  );
+
+  return $theme;
+}
+
+
+/**
+ * Implements hook_custom_theme().
+ */
+function page_theme_custom_theme() {
+
+  $path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
+
+  $result = db_query('SELECT theme, pages FROM {page_theme} WHERE status = 1 ORDER BY weight, theme');
+  foreach ($result as $page_theme) {
+    $pages = drupal_strtolower($page_theme->pages);
+
+    $page_match = drupal_match_path($path, $pages);
+    if ($path != $_GET['q']) {
+      $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+    }
+
+    if ($page_match) {
+      return $page_theme->theme;
+    }
+  }
+}
+
+
+/**
+ *  Helper functions.
+ */
+function page_theme_get_themes() {
+
+  static $themes = array();
+
+  if (!$themes) {
+
+    $result = db_query('SELECT name, status, info FROM {system} WHERE type = :type', array(':type' => 'theme'));
+    foreach ($result as $theme) {
+      $theme->info = unserialize($theme->info);
+
+      if (empty($theme->info['hidden']) || !$theme->info['hidden']) {
+        $themes[$theme->name] = array(
+          'theme' => $theme->name,
+          'name' => $theme->info['name'],
+          'status' => $theme->status,
+        );
+      }
+    }
+  }
+
+  return $themes;
+}
+
+function page_theme_get_themes_options() {
+
+  static $options = array();
+
+  if (!$options) {
+
+    $themes = page_theme_get_themes();
+
+    $result = db_query('SELECT theme FROM {page_theme}');
+    foreach ($result as $theme) {
+      unset($themes[$theme->theme]);
+    }
+
+    $options['0'] = '- '. t('Select theme') .' -';
+    foreach ($themes as $theme) {
+      $options[$theme['theme']] = page_theme_get_theme_name($theme['theme'], TRUE);
+    }
+
+    natcasesort($options);
+  }
+
+  return $options;
+}
+
+function page_theme_get_theme_name($theme, $expand = FALSE) {
+
+  $themes = page_theme_get_themes();
+
+  if (isset($themes[$theme])) {
+    $name = $expand && !$themes[$theme]['status'] ? t('!theme (disabled)', array('!theme' => $themes[$theme]['name'])) : $themes[$theme]['name'];
+  }
+  else {
+    $name = $expand ? t('!theme (not available)', array('!theme' => $theme)) : $theme;
+  }
+
+  return $name;
+}

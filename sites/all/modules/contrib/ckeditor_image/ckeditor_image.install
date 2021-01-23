@@ -1,0 +1,38 @@
+<?php
+
+/**
+ * @file
+ * CKEditor Image
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function ckeditor_image_enable() {
+  ckeditor_image_override_image_plugin();
+}
+
+/**
+ * Implements hook_disable().
+ */
+function ckeditor_image_disable() {
+  ckeditor_image_restore_image_plugin();
+}
+
+/**
+ * Implements hook_modules_enabled().
+ */
+function ckeditor_image_modules_enabled($modules) {
+  $supports  = ckeditor_image_get_supported_modules();
+  $overrides = array();
+
+  foreach ($supports as $module) {
+    if (in_array($module, $modules)) {
+      $overrides[] = $module;
+    }
+  }
+
+  if (!empty($overrides)) {
+    ckeditor_image_override_image_plugin($overrides);
+  }
+}

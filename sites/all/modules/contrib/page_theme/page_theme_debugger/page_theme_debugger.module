@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * @file
+ * This module displays a list of modules which override the system default
+ * theme sorted by module's call-up.
+ */
+
+
+/**
+ * Implements hook_help().
+ */
+function page_theme_debugger_help($path, $arg) {
+
+  switch ($path) {
+
+    case 'admin/help#page_theme_debugger':
+      $output = '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The Page Theme Debugger module displays a list of modules which override the system default theme sorted by module\'s call-up. For more information, see the online handbook entry for <a href="@page_theme">Page Theme module</a>.', array('@page_theme' => 'http://drupal.org/project/page_theme')) . '</p>';
+      return $output;
+  }
+}
+
+
+/**
+ * Implements hook_block_info().
+ */
+function page_theme_debugger_block_info() {
+
+  $info = array();
+  $info['page_theme_debugger'] = array(
+    'info' => t('Page Theme Debugger'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $info;
+}
+
+
+/**
+ * Implements hook_block_configure().
+ */
+function page_theme_debugger_block_configure($delta = '') {
+
+  $form = array();
+
+  if ($delta == 'page_theme_debugger') {
+
+    $form['page_theme_debugger_blacklist'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Blacklist'),
+      '#description' => t('Enter one module per line of each modules that should not execute <em>hook_custom_theme()</em>. Example modules are <em>og</em> for the Organic Groups module and <em>views</em> for the Views module.'),
+      '#default_value' => variable_get('page_theme_debugger_blacklist', "ctools\nog\nviews"),
+    );
+  }
+
+  return $form;
+}
+
+
+/**
+ * Implements hook_block_save().
+ */
+function page_theme_debugger_block_save($delta = '', $edit = array()) {
+
+  if ($delta == 'page_theme_debugger') {
+
+    variable_set('page_theme_debugger_blacklist', $edit['page_theme_debugger_blacklist']);
+  }
+}
+
+
+/**
+ * Implements hook_block_view().
+ */
+function page_theme_debugger_block_view($delta = '') {
+
+  $block = array();
+
+  if ($delta == 'page_theme_debugger') {
+
+    $page_theme_debugger_blacklist = variable_get('page_theme_debugger_blacklist', "ctools\nog\nviews");
+    $blacklist = preg_split("/\r\n|\n|\r|\s/", $page_theme_debugger_blacklist, -1, PREG_SPLIT_NO_EMPTY);
+
+    $items = array();
+    $items[] = t('Default theme => !theme', array('!theme' => variable_get('theme_default', 'bartik')));
+
+    foreach (module_implements('custom_theme') as $module) {
+
+      if (!in_array($module, $blacklist)) {
+
+        $theme = module_invoke($module, 'custom_theme');
+
+        if (is_null($theme)) {
+          $items[] = t('Module !module => %theme', array('!module' => $module, '%theme' => 'NULL'));
+        }
+        else if (empty($theme)) {
+          $items[] = t("Module !module => ''", array('!module' => $module));
+        }
+        else if (is_array($theme)) {
+          $items[] = t('Module !module => !theme', array('!module' => $module, '!theme' => serialize($theme)));
+        }
+        else {
+          $items[] = t('Module !module => !theme', array('!module' => $module, '!theme' => $theme));
+        }
+      }
+    }
+
+    $block['subject'] = t('Page Theme Debugger');
+    $block['content'] = theme('item_list', array('items' => $items));
+  }
+
+  return $block;
+}

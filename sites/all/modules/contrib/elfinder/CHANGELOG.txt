@@ -1,0 +1,79 @@
+0.7
+---
+  - Added plugin api
+  - BUEditor now supported through bindled module elfinder_bueditor. Drupal 6 and Drupal 7 versions supported.
+  - Using system jQuery and jQuery UI if possible. Removed hardcoded bundled jQuery and jQuery UI versions. (#1001150)
+  - Fixed path in multilingual mode (#1099042), patch by mohamadaliakbari (#1205400)
+  - Fixed admin/content/files access (#1109362)
+  - Added support for elFinder 1.2
+  - Fixed TinyMCE in IE7/8 (#1137962)
+  - Fixed opening in IE6
+  - Fixed filefield_sources support in Drupal 7 (#1157874)
+  - CSS optimization fix (patch by delagen, drupal.org/node/1297686)
+  - Added automatical search of jQuery UI 1.8 css files.
+  - Removed parts of D6 code.
+  - Removed admin_menu_toolbar in browser popup. Removed admin_menu_toolbar and IMCE incompatibility warnings.
+  - Added elFinder block (#1202064, patch by jhelou, http://drupal.org/user/1391812)
+  - Improved library search with multiple sites per install and profiles support
+
+0.6
+---
+  - #962210, #933874: Added initial CCK filefield_sources support (code provided by ioskevich, http://drupal.org/user/85913)
+  - Added default permissions configuration for created files and directories
+  - Added image manipulation library selection
+  - #984322 Added 'Remember last opened directory' setting to configuration page (enabled by default)
+  - #992050 PHP strict mode error fix (patch by binford2k, http://drupal.org/user/12534)
+  - #990330 Added admin_menu_toolbar incompatibility warning
+  - #1003518 Fixed permissions for uploaded files and created folders
+  - #1014850 Removed default timezone setting 
+  - Added hook api for module developers
+  - Added uninstall data
+
+
+0.5
+---
+  - Added WYMeditor support
+  - Added settings page
+  - Added advanced permissions configuration. Now 'use file manager' 
+    for non-admin users allowing to use elFinder with minimum permissions.
+  - Disabling incompatible devel module features
+  - Added filesystem root configuration
+  - Added file type detection method selection
+  - Added thumbnail configuration
+  - Added absolute/relative url configuration 
+  - Added warning if IMCE enabled
+
+0.4
+---
+  - Enabled archiving support
+  - Support Drupal configuration when search-friendly urls disabled
+  - Added Files menu to administration backend (admin/content/files)
+  - Added jWYSIWYG support
+  - Added YUI Editor support
+  - Added image width and height insert to BUEditor
+  - Fixed timezone warning for php 5.3
+
+0.3.1
+-----
+  - Installer/check requirements bugfix
+
+0.3
+---
+  - Added BUEditor support
+  - Added i18n support
+  - Removed wysiwyg module from requirements - file manager can work standalone
+  - Code cleanup
+
+0.2.1
+-----
+  - Security fixes
+
+0.2
+---
+ - elFinder library location moved to sites/all/libraries/elfinder
+ - elFinder library no longer bundled with this module
+ - Added TinyMCE and FCKeditor support
+
+0.1
+---
+ Initial public version

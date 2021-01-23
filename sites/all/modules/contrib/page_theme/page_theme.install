@@ -1,0 +1,154 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the page_theme module.
+ */
+
+
+/**
+ * Implements hook_schema().
+ */
+function page_theme_schema() {
+
+  $schema = array();
+  $schema['page_theme'] = array(
+    'description' => 'Page theme settings.',
+    'fields' => array(
+      'ptid' => array(
+        'description' => 'Primary Key: Unique page theme ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'theme' => array(
+        'description' => 'Theme name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'pages' => array(
+        'description' => 'List of paths to which the theme is assigned.',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'Theme enabled status. (1 = enabled, 0 = disabled)',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'weight' => array(
+        'description' => 'Theme weight within pages.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('ptid'),
+    'unique keys' => array(
+      'theme' => array('theme'),
+    ),
+    'indexes' => array(
+      'list' => array('theme', 'weight'),
+    ),
+  );
+
+  return $schema;
+}
+
+
+/**
+ * Add status and weight field.
+ */
+function page_theme_update_6100() {
+
+  db_add_field('page_theme', 'status', array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0));
+  db_add_field('page_theme', 'weight', array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0));
+
+  $result = db_query('SELECT theme FROM {page_theme}');
+  foreach ($result as $page_theme) {
+    db_update('page_theme')
+      ->fields(array('status' => 1))
+      ->condition('theme', $page_theme->theme)
+      ->execute();
+  }
+}
+
+/**
+ * Add preview field.
+ */
+function page_theme_update_6101() {
+
+  db_add_field('page_theme', 'preview', array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0));
+
+  $result = db_query('SELECT theme FROM {page_theme}');
+  foreach ($result as $page_theme) {
+    db_update('page_theme')
+      ->fields(array('preview' => 1))
+      ->condition('theme', $page_theme->theme)
+      ->execute();
+  }
+}
+
+/**
+ * Rename field preview to editpage.
+ */
+function page_theme_update_6102() {
+
+  db_change_field('page_theme', 'preview', 'editpage',  array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0));
+}
+
+/**
+ * Fix default value for theme field.
+ */
+function page_theme_update_6103() {
+
+  db_drop_primary_key('page_theme');
+  db_change_field('page_theme', 'theme', 'theme', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''), array('primary key' => array('theme')));
+}
+
+/**
+ * Add page theme ID field and update table indices.
+ */
+function page_theme_update_6104() {
+
+  db_drop_primary_key('page_theme');
+  db_add_field('page_theme', 'ptid', array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE), array('primary key' => array('ptid')));
+  db_add_unique_key('page_theme', 'theme', array('theme'));
+  db_add_index('page_theme', 'list', array('theme', 'weight'));
+}
+
+/**
+ * Drop editpage field which is no longer used.
+ */
+function page_theme_update_6105() {
+
+  db_drop_field('page_theme', 'editpage');
+}
+
+/**
+ * Change the weight column to normal int.
+ */
+function page_theme_update_7000() {
+
+  db_drop_index('page_theme', 'list');
+  db_change_field('page_theme', 'weight', 'weight', array('type' => 'int', 'not null' => TRUE, 'default' => 0), array('indexes' => array('list' => array('theme', 'weight'))));
+}
+
+/**
+ * Check if all defined themes are available otherwise display a notice.
+ */
+function page_theme_update_7001() {
+
+  $themes = page_theme_get_themes();
+
+  $result = db_query('SELECT theme FROM {page_theme}');
+  foreach ($result as $page_theme) {
+    if (!isset($themes[$page_theme->theme])) {
+      return t('Not all defined themes are available, please check your configuration.');
+    }
+  }
+}

@@ -1,0 +1,15 @@
+name = Nodeaccess
+description = Provides per node access control
+core = 7.x
+package = Access control
+configure = admin/config/people/nodeaccess
+
+files[] = tests/nodeaccess_grant.test
+files[] = tests/nodeaccess_role.test
+files[] = tests/nodeaccess_publish.test
+
+; Information added by Drupal.org packaging script on 2020-05-20
+version = "7.x-1.8"
+core = "7.x"
+project = "nodeaccess"
+datestamp = "1589975058"

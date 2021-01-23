@@ -1,0 +1,19 @@
+
+.el-finder-nav ul li {
+	background:none;
+	padding:0;
+	margin:0;
+}
+
+
+.el-finder-nav ul {
+	list-style-type:none!important;  
+}
+
+.el-finder-cwd label {
+ font-weight:normal!important;
+ overflow:visible!important;
+}
+
+.el-finder-cwd .html p { background-position: 0 -550px; }
+.el-finder-cwd .directory p { background-position: 0 -50px; }

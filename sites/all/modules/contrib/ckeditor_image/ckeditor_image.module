@@ -1,0 +1,242 @@
+<?php
+
+/**
+ * @file
+ * CKEditor Image
+ */
+
+/**
+ * Implements of hook_ckeditor_plugin().
+ */
+function ckeditor_image_ckeditor_plugin() {
+  $base_path   = '%base_path%';
+  $module_path = drupal_get_path('module', 'ckeditor_image');
+  $plugins     = array();
+
+  $plugins['ckeditor_image'] = array(
+    'name'    => 'enhanced_image',
+    'desc'    => t('CKEditor Image - Enhanced Image plugin'),
+    'path'    => $module_path . '/plugins/enhanced_image/',
+    'default' => 't',
+    'buttons' => array(
+      'EnhancedImage' => array(
+        'label' => 'Enhanced Image',
+        'icon'  => 'images/image.png',
+      ),
+    ),
+  );
+
+  return $plugins;
+}
+
+/**
+ * Implements of hook_wysiwyg_plugin().
+ */
+function ckeditor_image_wysiwyg_plugin($editor, $version) {
+  if ($editor == 'ckeditor') {
+    $module_path = drupal_get_path('module', 'ckeditor_image');
+    $plugins     = array();
+
+    $plugins['enhanced_image'] = array(
+      'title'    => 'Enhanced Image',
+      'path'     => $module_path . '/plugins/enhanced_image/',
+      'filename' => 'plugin.js',
+      'load'     => TRUE,
+      'buttons'  => array(
+        'EnhancedImage' => t('Enhanced Image'),
+      ),
+    );
+
+    return $plugins;
+  }
+}
+
+/**
+ * Get the list of supported modules.
+ * @return array
+ *   List of modules.
+ */
+function ckeditor_image_get_supported_modules() {
+  return array('ckeditor', 'wysiwyg');
+}
+
+/**
+ * Override image plugin.
+ */
+function ckeditor_image_override_image_plugin($modules = NULL) {
+  if (empty($modules)) {
+    $modules = ckeditor_image_get_supported_modules();
+  }
+  elseif (!is_array($modules)) {
+    $modules = array($modules);
+  }
+
+  foreach ($modules as $module) {
+    $function = 'ckeditor_image_override_' . $module . '_image_plugin';
+
+    if (function_exists($function)) {
+      $function();
+    }
+  }
+}
+
+/**
+ * Override image plugin of CKEditor module.
+ */
+function ckeditor_image_override_ckeditor_image_plugin() {
+  if (module_exists('ckeditor')) {
+    $profiles = db_select('ckeditor_settings', 's')
+                  ->fields('s')
+                  ->execute();
+
+    foreach ($profiles as $profile) {
+      $settings = @unserialize($profile->settings);
+      $changed  = FALSE;
+
+      if (!empty($settings['toolbar'])) {
+        $found = strpos($settings['toolbar'], "'EnhancedImage'") !== FALSE;
+
+        // Button isn't enabled and Image button is enabled.
+        if (!$found && strpos($settings['toolbar'], "'Image'") !== FALSE) {
+          $changed = TRUE;
+          $found   = TRUE;
+          $settings['toolbar'] = str_replace("'Image'", "'EnhancedImage'", $settings['toolbar']);
+        }
+
+        // Button is enabled but Plugin is deactivated.
+        if ($found && empty($settings['loadPlugins']['ckeditor_image'])) {
+          $changed = TRUE;
+          $plugins = ckeditor_image_ckeditor_plugin();
+          $plugins['ckeditor_image']['path'] = '%base_path%' . $plugins['ckeditor_image']['path'];
+          $settings['loadPlugins']['ckeditor_image'] = $plugins['ckeditor_image'];
+        }
+      }
+
+      if ($changed) {
+        db_update('ckeditor_settings')
+          ->fields(array(
+              'settings' => serialize($settings),
+            ))
+          ->condition('name', $profile->name)
+          ->execute();
+      }
+    }
+  }
+}
+
+/**
+ * Override image plugin of WYSIWYG module.
+ */
+function ckeditor_image_override_wysiwyg_image_plugin() {
+  if (module_exists('wysiwyg')) {
+    $profiles = db_select('wysiwyg', 's')
+                  ->fields('s')
+                  ->execute();
+
+    foreach ($profiles as $profile) {
+      $settings = @unserialize($profile->settings);
+
+      // If button isn't enabled.
+      if (empty($settings['buttons']['enhanced_image']['EnhancedImage'])) {
+        // If image button is enabled, remove it.
+        if (!empty($settings['buttons']['default']['Image'])) {
+          unset($settings['buttons']['default']['Image']);
+        }
+
+        // Enable our button.
+        $settings['buttons']['enhanced_image']['EnhancedImage'] = 1;
+
+        db_update('wysiwyg')
+          ->fields(array(
+              'settings' => serialize($settings),
+            ))
+          ->condition('format', $profile->format)
+          ->execute();
+      }
+    }
+  }
+}
+
+/**
+ * Restore image plugin.
+ */
+function ckeditor_image_restore_image_plugin($modules = array()) {
+  if (empty($modules)) {
+    $modules = ckeditor_image_get_supported_modules();
+  }
+  elseif (!is_array($modules)) {
+    $modules = array($modules);
+  }
+
+  foreach ($modules as $module) {
+    $function = 'ckeditor_image_restore_' . $module . '_image_plugin';
+
+    if (function_exists($function)) {
+      $function();
+    }
+  }
+}
+
+/**
+ * Restore image plugin of CKEditor module.
+ */
+function ckeditor_image_restore_ckeditor_image_plugin() {
+  if (module_exists('ckeditor')) {
+    $profiles = db_select('ckeditor_settings', 's')
+                  ->fields('s')
+                  ->execute();
+
+    foreach ($profiles as $profile) {
+      $settings = @unserialize($profile->settings);
+      $changed  = FALSE;
+
+      if (!empty($settings['toolbar']) && strpos($settings['toolbar'], "'EnhancedImage'") !== FALSE) {
+        $settings['toolbar'] = str_replace("'EnhancedImage'", "'Image'", $settings['toolbar']);
+      }
+
+      if (!empty($settings['loadPlugins']['ckeditor_image'])) {
+        $changed = TRUE;
+        unset($settings['loadPlugins']['ckeditor_image']);
+      }
+
+      if ($changed) {
+        db_update('ckeditor_settings')
+          ->fields(array(
+              'settings' => serialize($settings),
+            ))
+          ->condition('name', $profile->name)
+          ->execute();
+      }
+    }
+  }
+}
+
+/**
+ * Restore image plugin of WYSIWYG module.
+ */
+function ckeditor_image_restore_wysiwyg_image_plugin() {
+  if (module_exists('wysiwyg')) {
+    $profiles = db_select('wysiwyg', 's')
+                  ->fields('s')
+                  ->execute();
+
+    foreach ($profiles as $profile) {
+      $settings = @unserialize($profile->settings);
+
+      if (!empty($settings['buttons']['enhanced_image'])) {
+        unset($settings['buttons']['enhanced_image']);
+
+        if (empty($settings['buttons']['default']['Image'])) {
+          $settings['buttons']['default']['Image'] = 1;
+        }
+
+        db_update('wysiwyg')
+          ->fields(array(
+              'settings' => serialize($settings),
+            ))
+          ->condition('format', $profile->format)
+          ->execute();
+      }
+    }
+  }
+}

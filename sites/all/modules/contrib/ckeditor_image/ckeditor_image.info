@@ -1,0 +1,11 @@
+name        = CKEditor Image
+description = Enhanced Image plugin for CKEditor
+core        = 7.x
+package     = User interface
+
+; Information added by drupal.org packaging script on 2013-07-09
+version = "7.x-1.2"
+core = "7.x"
+project = "ckeditor_image"
+datestamp = "1373385253"
+

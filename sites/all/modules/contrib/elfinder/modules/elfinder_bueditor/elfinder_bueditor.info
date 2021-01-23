@@ -1,0 +1,15 @@
+; $Id: elfinder_ffsel.info,v 1.1.2.2 2010/11/20 23:18:55 ph0enix Exp $
+name = elFinder BUEditor integration
+description = Adding elFinder to BUEditor Insert Image dialog
+package = User interface
+core = 7.x
+
+dependencies[] = bueditor
+dependencies[] = elfinder
+
+; Information added by drupal.org packaging script on 2013-04-16
+version = "7.x-0.8"
+core = "7.x"
+project = "elfinder"
+datestamp = "1366140883"
+

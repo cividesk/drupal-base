@@ -251,23 +251,4 @@ function media_browser_build_media_item($file, $view_mode = 'preview') {
   $preview = media_get_thumbnail_preview($file, NULL, $view_mode);
   $file->preview = drupal_render($preview);
   $file->url = file_create_url($file->uri);
-
-  // Support absolute / relative urls.
-  if (variable_get('media_browser_relative_url', FALSE)) {
-    $tmp_scheme;
-    $tmp_host;
-    $tmp_port;
-    $tmp_base_url;
-    $parse_tmp = parse_url($file->url);
-    $tmp_scheme = $parse_tmp['scheme'];
-    $tmp_host = $parse_tmp['host'];
-    if(isset($parse_tmp['port'])) {
-      $tmp_port = $parse_tmp['port'];
-      $tmp_base_url = $tmp_scheme . '://' . $tmp_host . ':' . $tmp_port;
-    }
-    else {
-      $tmp_base_url = $tmp_scheme . '://' . $tmp_host;
-    }
-    $file->url = substr($file->url, strlen($tmp_base_url));
-  }
 }

@@ -25,7 +25,7 @@ Drupal.wysiwyg.plugins.media = {
    *   A DOM element
    */
   isNode: function(node) {
-    return $(node).hasClass('media-element');
+    return $(node).is('img[data-media-element]');
   },
 
   /**
@@ -44,21 +44,16 @@ Drupal.wysiwyg.plugins.media = {
    *   The ID of the current editor instance.
    */
   invoke: function (data, settings, instanceId) {
-    var insert, mediaInstance, $placeholder;
     if (data.format == 'html') {
-      insert = new InsertMedia(instanceId);
+      var insert = new InsertMedia(instanceId);
       // CKEDITOR module support doesn't set this setting
       if (typeof settings['global'] === 'undefined') {
         settings['global'] = {id: 'media_wysiwyg'};
       }
       if (this.isNode(data.node)) {
-        // Edit existing media instance.
-        $placeholder = $(data.node);
-        mediaInstance = Drupal.media.filter.getMediaInstanceFromElement($placeholder);
-        // Feed media instance about current state in placeholder.
-        mediaInstance.setPlaceholderFromWysiwyg($placeholder);
-        Drupal.media.filter.addMediaInstance(mediaInstance);
-        insert.onSelect([mediaInstance.getSettings()]);
+        // Change the view mode for already-inserted media.
+        var media_file = Drupal.media.filter.extract_file_info($(data.node));
+        insert.onSelect([media_file]);
       }
       else {
         // Store currently selected text.
@@ -116,9 +111,9 @@ InsertMedia.prototype = {
   /**
    * On selection of a media item, display item's display configuration form.
    */
-  onSelect: function (mediaSettings) {
-    this.mediaSettings = mediaSettings[0];
-    Drupal.media.popups.mediaStyleSelector(this.mediaSettings, $.proxy(this, 'insert'), {});
+  onSelect: function (media_files) {
+    this.mediaFile = media_files[0];
+    Drupal.media.popups.mediaStyleSelector(this.mediaFile, $.proxy(this, 'insert'), {});
   },
 
   /**
@@ -127,15 +122,78 @@ InsertMedia.prototype = {
    * tagmap.
    */
   insert: function (formatted_media) {
-    var mediaInstance = new Drupal.media.WysiwygInstance($.extend({}, formatted_media.options, {
-      attributes: this.mediaSettings.attributes,
-      link_text: Drupal.wysiwyg.plugins.media.selectedText
-    }), formatted_media.html);
-    // Register the instance so it's not lost.
-    Drupal.media.filter.addMediaInstance(mediaInstance);
+    var element = Drupal.media.filter.create_element(formatted_media.html, {
+          fid: this.mediaFile.fid,
+          view_mode: formatted_media.type,
+          attributes: this.mediaFile.attributes,
+          fields: formatted_media.options,
+          link_text: Drupal.wysiwyg.plugins.media.selectedText
+        });
+    // Get the markup and register it for the macro / placeholder handling.
+    var markup = Drupal.media.filter.getWysiwygHTML(element);
+
     // Insert placeholder markup into wysiwyg.
-    Drupal.wysiwyg.instances[this.instanceId].insert(mediaInstance.getPlaceholderHtml());
+    Drupal.wysiwyg.instances[this.instanceId].insert(markup);
   }
 };
+
+/** Helper functions */
+
+/**
+ * Ensures the tag map has been initialized.
+ */
+function ensure_tagmap () {
+  return Drupal.media.filter.ensure_tagmap();
+}
+
+/**
+ * Serializes file information as a url-encoded JSON object and stores it as a
+ * data attribute on the html element.
+ *
+ * @param html (string)
+ *    A html element to be used to represent the inserted media element.
+ * @param info (object)
+ *    A object containing the media file information (fid, view_mode, etc).
+ *
+ * @deprecated
+ */
+function create_element (html, info) {
+  return Drupal.media.filter.create_element(html, info);
+}
+
+/**
+ * Create a macro representation of the inserted media element.
+ *
+ * @param element (jQuery object)
+ *    A media element with attached serialized file info.
+ *
+ * @deprecated
+ */
+function create_macro (element) {
+  return Drupal.media.filter.create_macro(element);
+}
+
+/**
+ * Extract the file info from a WYSIWYG placeholder element as JSON.
+ *
+ * @param element (jQuery object)
+ *    A media element with attached serialized file info.
+ *
+ * @deprecated
+ */
+function extract_file_info (element) {
+  return Drupal.media.filter.extract_file_info(element);
+}
+
+/**
+ * Gets the HTML content of an element.
+ *
+ * @param element (jQuery object)
+ *
+ * @deprecated
+ */
+function outerHTML (element) {
+  return Drupal.media.filter.outerHTML(element);
+}
 
 })(jQuery);

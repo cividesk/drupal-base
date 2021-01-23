@@ -24,17 +24,17 @@ Drupal.behaviors.mediaFormatForm = {
 
     // Adding the buttons should only be done once in order to prevent multiple
     // buttons from being added if part of the form is updated via AJAX
-    $('#media-wysiwyg-format-form').once('view_mode', function() {
+    $('#media-wysiwyg-format-form').once('format', function() {
       $('<a class="button fake-ok" href="javascript:void(0)">' + Drupal.t('Submit') + '</a>').appendTo($('#media-wysiwyg-format-form')).bind('click', Drupal.media.formatForm.submit);
     });
   }
 };
 
 Drupal.media.formatForm.getEditorContent = function(fieldKey) {
-  // This is the default implementation of an overridable function:
-  // Each javascript rich-text editor module should provide an override implementation
+  // This is the default implementation of an overridable function: 
+  // Each javascript rich-text editor module should provide an override implementation 
   // of this function which fetches content from the appropriate editor-specific variable.
-
+  
   // This current implementation explicitly handles the editors from the
   // WYSIWYG and Media CKEditor modules: it should be modified to remove that
   // as soon as each module has been confirmed to provide their own implementation.
@@ -115,7 +115,7 @@ Drupal.media.formatForm.getOptions = function () {
 };
 
 Drupal.media.formatForm.getFormattedMedia = function () {
-  var formatType = $("#edit-view-mode").val();
+  var formatType = $("#edit-format").val();
   return { type: formatType, options: Drupal.media.formatForm.getOptions(), html: Drupal.settings.media.formatFormFormats[formatType] };
 };
 

@@ -142,20 +142,13 @@ function media_wysiwyg_entity_field_count_files($entity_type, $entity) {
  * Implements hook_entity_delete().
  */
 function media_wysiwyg_entity_delete($entity, $type) {
-  $info = entity_get_info($type);
+  list($entity_id) = entity_extract_ids($type, $entity);
 
-  // Try to delete the related used files on the entity only if it's fieldable,
-  // because non-fieldable entities may have non-numeric ID, which could cause
-  // to fail in case of postgres.
-  if ($info['fieldable']) {
-    list($entity_id) = entity_extract_ids($type, $entity);
-
-    db_delete('file_usage')
-      ->condition('module', 'media')
-      ->condition('type', $type)
-      ->condition('id', $entity_id)
-      ->execute();
-  }
+  db_delete('file_usage')
+    ->condition('module', 'media')
+    ->condition('type', $type)
+    ->condition('id', $entity_id)
+    ->execute();
 }
 
 /**

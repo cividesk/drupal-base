@@ -116,14 +116,13 @@ class MediaWYSIWYGWYSIWYGOverridesTest extends MediaWYSIWYGMacroTestHelper {
     $this->assertRaw('width="100"', t('Image displays with default width attribute.'));
     $this->assertRaw('height="100"', t('Image displays with default height attribute.'));
 
-    // Create a media token with a style attribute and assert that it is
-    // rendered.
+    // Create a node with a style attribute.
     $attributes = array(
-      'style' => 'width: 50px;',
+      'style' => 'float: left; width: 50px;',
     );
     $nid = $this->createNode($file->fid, $attributes);
     $this->drupalGet('node/' . $nid);
-    $this->assertPattern('|<img[^>]* style="[^">]*width: *50px|', t("Image displays with overridden attributes."));
+    $this->assertRaw(drupal_attributes($attributes), t('Image displays with overriden attributes.'));
 
     // Create a node with overriden alt/title attributes.
     $attributes = array(
@@ -159,4 +158,28 @@ class MediaWYSIWYGWYSIWYGOverridesTest extends MediaWYSIWYGMacroTestHelper {
     $this->assertRaw(drupal_attributes($attributes), t('Image displays with alt/title set as attributes overriding field values.'));
   }
 
+  /**
+   * Test image media overrides on images with fields attached.
+   */
+  public function testAttributeOverridesWithFields() {
+    // First make images display the title field on the preview mode we use.
+    $instance = field_read_instance('file', 'field_file_image_title_text', 'image');
+    $instance['display']['preview']['type'] = 'text_default';
+    $instance['display']['preview']['module'] = 'text';
+    field_update_instance($instance);
+
+    $files = $this->drupalGetTestFiles('image');
+    $file = file_save($files[0]);
+
+    $attributes = array(
+      'style' => 'float: left;',
+    );
+    $fields = array(
+      'field_file_image_title_text[und][0][value]' => $this->randomName(),
+    );
+    $nid = $this->createNode($file->fid, $attributes, $fields);
+    $this->drupalGet('node/' . $nid);
+    $this->assertRaw('float: left;', 'Image displays with overriden attributes when displays with fields.');
+    $this->assertRaw('media-float-left', 'Media float class added.');
+  }
 }

@@ -9,8 +9,6 @@
  * Implements hook_install().
  */
 function media_install() {
-  // Start off with relative urls supported.
-  variable_set('media_browser_relative_url', TRUE);
   // Make sure that we set the icon base directory variable if it is not
   // already set.
   $base = variable_get('media_icon_base_directory', NULL);
@@ -53,7 +51,6 @@ function media_uninstall() {
   variable_del('media_dialog_theme');
   variable_del('media_icon_base_directory');
   variable_del('media_icon_set');
-  variable_del('media_browser_relative_url');
   variable_del('media_show_deprecated_view_modes');
 
   // Dialog options.

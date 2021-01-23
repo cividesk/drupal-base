@@ -5,10 +5,6 @@
  * Primarily Drupal hooks.
  */
 
-// The current version of media token format. The version number has to be
-// compatible with PHP's version_compare();
-define('MEDIA_WYSIWYG_TOKEN_VERSION', '4.0');
-
 // Functions for tracking the file usage of [[inline tags]].
 require_once dirname(__FILE__) . '/includes/media_wysiwyg.file_usage.inc';
 
@@ -25,11 +21,14 @@ require_once dirname(__FILE__) . '/includes/media_wysiwyg.features.inc';
  * Implements hook_page_build().
  */
 function media_wysiwyg_page_build(&$page) {
-  $page['page_bottom']['media_wysiwyg']['#attached']['css'] = array(
-    drupal_get_path('module', 'media_wysiwyg') . '/css/media_wysiwyg.base.css' => array(
-      'every_page' => TRUE,
-    ),
-  );
+  // We need to load some minor CSS if media alignment is enabled.
+  if (variable_get('media_wysiwyg_alignment', FALSE)) {
+    $page['page_bottom']['media_wysiwyg']['#attached']['css'] = array(
+      drupal_get_path('module', 'media_wysiwyg') . '/css/media_wysiwyg.base.css' => array(
+        'every_page' => TRUE,
+      ),
+    );
+  }
 }
 
 /**
@@ -62,14 +61,6 @@ function media_wysiwyg_menu() {
     'file' => 'includes/media_wysiwyg.pages.inc',
     'theme callback' => 'media_dialog_get_theme_name',
     'type' => MENU_CALLBACK,
-  );
-  $items['admin/reports/status/upgrade-media-tokens'] = array(
-    'title' => 'Rebuild media tokens',
-    'description' => "Scans content for media tokens and upgrades them to the latest format version.",
-    'access arguments' => array('administer site configuration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('media_wysiwyg_upgrade_content_tokens'),
-    'file' => 'includes/media_wysiwyg.pages.inc',
   );
 
   return $items;
@@ -111,11 +102,6 @@ function media_wysiwyg_element_info_alter(&$types) {
  * editor is being displayed.
  */
 function media_wysiwyg_pre_render_text_format($element) {
-  // This callback may be called many times on a single page request. To avoid
-  // having settings and libraries that only need to be added once be added many
-  // times, we use this variable to add it to the first element only.
-  $global_settings_added = &drupal_static(__FUNCTION__, FALSE);
-
   // filter_process_format() copies properties to the expanded 'value' child
   // element.
   if (!isset($element['format'])) {
@@ -123,85 +109,68 @@ function media_wysiwyg_pre_render_text_format($element) {
   }
 
   $field = &$element['value'];
+  $settings = array(
+    'field' => $field['#id'],
+  );
+
   if (!isset($field['#value']) && $field['#value'] != '') {
     return $element;
   }
 
-  // Settings we want available client side.
-  $settings = $global_settings_added ? array() : media_wysiwyg_global_js_settings();
+  $tagmap = array();
 
-  // Add all media tokens within this text field.
-  $settings['tagMap'] = array();
   foreach (array('value', 'summary') as $column) {
     if (isset($element[$column]['#value'])) {
-      $settings['tagMap'] += _media_wysiwyg_generate_tagmap($element[$column]['#value']);
+      $tagmap += _media_wysiwyg_generate_tagMap($element[$column]['#value']);
     }
   }
-  // During _media_wysiwyg_generate_tagmap(), a new static fid => type map
-  // is created that is required client side to get the file type of a given
-  // media element. Add this too.
-  $settings['fidTypeMap'] = media_wysiwyg_fid_type_map_get(TRUE);
 
-  // Attach all settings under the Drupal.settings.media namespace, even though
-  // we come from "media_wysiwyg", it makes sense to keep everything related to
-  // the media package within this namespace.
-  $element['#attached']['js'][] = array(
-    'data' => array('media' => $settings),
-    'type' => 'setting',
-  );
-
-  if (!$global_settings_added) {
-    // Add required js tools for working with media instances in text fields.
-    $us = drupal_get_path('module', 'media_wysiwyg');
-    $element['#attached']['js'][] = $us . '/js/media_wysiwyg.utils.js';
-    $element['#attached']['js'][] = $us . '/js/media_wysiwyg.filter.js';
-    $element['#attached']['js'][] = $us . '/js/media_wysiwyg.instance.js';
-
-    // Load the media browser library.
-    $element['#attached']['library'][] = array('media', 'media_browser');
-    $element['#attached']['library'][] = array('media', 'media_browser_settings');
+  if (!empty($tagmap)) {
+    $element['#attached']['js'][] = array(
+      'data' => array(
+        'tagmap' => $tagmap,
+      ),
+      'type' => 'setting',
+    );
   }
 
-  $global_settings_added = TRUE;
-  return $element;
-}
+  // Load the media browser library.
+  $element['#attached']['library'][] = array('media', 'media_browser');
+  $element['#attached']['library'][] = array('media', 'media_browser_settings');
 
-/**
- * Map between html attribute and the file field that feeds it.
- */
-function media_wysiwyg_get_attribute_fields() {
-  $map = array(
-    'alt' => 'field_file_image_alt_text',
-    'title' => 'field_file_image_title_text',
+  // Add wysiwyg-specific settings.
+  $settings = array(
+    'wysiwyg_allowed_attributes' => media_wysiwyg_allowed_attributes(),
+    'img_alt_field' => 'field_file_image_alt_text',
+    'img_title_field' => 'field_file_image_title_text',
   );
+
   // The file_entity module lets you specify a string, possibly with tokens, for
-  // the alt and title attributes of images. We need the actual field names
-  // instead. If the variable only contains a token of the format
-  // [file:field_file_image_alt_text] then it's possible to extract it.
+  // the alt and title attributes of images. We need the actual field names instead.
+  // If the variable only contains a token of the format [file:field_file_image_alt_text]
+  // then it's possible to extract it.
   $alt_token = variable_get('file_entity_alt', '[file:field_file_image_alt_text]');
   $title_token = variable_get('file_entity_title', '[file:field_file_image_title_text]');
   $matches = array();
   if (preg_match('/^\[file:(field_[[:alnum:]_-]+)\]$/', trim($alt_token), $matches)) {
-    $map['alt'] = $matches[1];
+    $settings['img_alt_field'] = $matches[1];
   }
   if (preg_match('/^\[file:(field_[[:alnum:]_-]+)\]$/', trim($title_token), $matches)) {
-    $map['title'] = $matches[1];
+    $settings['img_title_field'] = $matches[1];
   }
-  return $map;
-}
 
-/**
- * Build the global client side settings for wysiwyg editing.
- */
-function media_wysiwyg_global_js_settings() {
-  $settings = array(
-    'tokenSchema' => media_wysiwyg_schema_token('js'),
-    'wysiwygAllowedAttributes' => media_wysiwyg_allowed_attributes(),
-    'doLinkText' => (boolean) variable_get('media_wysiwyg_use_link_text_for_filename', 1),
-    'overridableFields' => media_wysiwyg_overridable_fields(),
-    'attributeFields' => media_wysiwyg_get_attribute_fields(),
+  $element['#attached']['js'][] = array(
+    'data' => array(
+      'media' => $settings,
+      'mediaDoLinkText' => (boolean) variable_get('media_wysiwyg_use_link_text_for_filename', 1),
+    ),
+    'type' => 'setting',
   );
-  return $settings;
+
+  // Add filter handling.
+  $element['#attached']['js'][] = drupal_get_path('module', 'media_wysiwyg') . '/js/media_wysiwyg.filter.js';
+
+  return $element;
 }
 
 /**
@@ -341,7 +310,7 @@ function media_wysiwyg_form_media_admin_config_browser_alter(&$form, &$form_stat
     '#type' => 'checkbox',
     '#title' => t('Provide alignment option when embedding media'),
     '#default_value' => variable_get('media_wysiwyg_alignment', FALSE),
-    '#description' => t('If checked, there will be an alignment (left/right/center) option when embedding media in a WYSIWYG. Independent of this, media can still be aligned using the text justify buttons in wysiwyg editors, if supported.'),
+    '#description' => t('If checked, there will be an alignment (left/right/center) option when embedding media in a WYSIWYG.'),
   );
 
   $form['wysiwyg']['media_wysiwyg_external_link'] = array(
@@ -412,23 +381,6 @@ function media_wysiwyg_wysiwyg_include_directory($type) {
 }
 
 /**
- * Implements hook_wysiwyg_editor_settings_alter().
- */
-function media_wysiwyg_wysiwyg_editor_settings_alter(&$settings, $context) {
-  // Always load the 'mediaJustify' plugin for ckeditor whenever the cross
-  // editor 'media' plugin is loaded in wysiwyg configurations. In order to
-  // achieve consistent media alignment this should always be loaded whenever
-  // the media module is.
-  if ($context['editor']['name'] == 'ckeditor' && isset($context['profile']->settings['buttons']['drupal']['media']) && $context['profile']->settings['buttons']['drupal']['media']) {
-    drupal_add_js(drupal_get_path('module', 'media_wysiwyg') . '/js/ckeditor/mediaJustify/plugin.js');
-    $extra_plugins = explode(',', $settings['extraPlugins']);
-    if (in_array('media', $extra_plugins) && !in_array('mediaJustify', $extra_plugins)) {
-      $settings['extraPlugins'] .= ',mediaJustify';
-    }
-  }
-}
-
-/**
  * Returns the set of allowed attributes for use with WYSIWYG.
  *
  * @return array
@@ -452,7 +404,7 @@ function media_wysiwyg_allowed_attributes() {
     'data-picture-group',
     'data-picture-align',
     'data-picture-mapping',
-    'data-media-key',
+    'data-delta',
   ));
   drupal_alter('media_wysiwyg_allowed_attributes', $allowed_attributes);
   return $allowed_attributes;
@@ -479,19 +431,21 @@ function media_wysiwyg_get_file_without_label($file, $view_mode, $settings = arr
     if (!empty($matches[2])) {
       $field_name = $matches[2];
       $field_langcode = field_language('file', $file, $field_name);
-      if (isset($settings[$field_name][$field_langcode]['value'])) {
+      if (isset($settings['fields'][$field_name][$field_langcode]['value'])) {
         if (empty($settings['attributes'][$field_type])) {
-          $settings['attributes'][$field_type] = $settings[$field_name][$field_langcode]['value'];
+          $settings['attributes'][$field_type] = $settings['fields'][$field_name][$field_langcode]['value'];
         }
       }
-      if (isset($settings[$field_name][$field_langcode][0]['value'])) {
+      if (isset($settings['fields'][$field_name][$field_langcode][0]['value'])) {
         if (empty($settings['attributes'][$field_type])) {
-          $settings['attributes'][$field_type] = $settings[$field_name][$field_langcode][0]['value'];
+          $settings['attributes'][$field_type] = $settings['fields'][$field_name][$field_langcode][0]['value'];
         }
       }
     }
   }
+
   $file->override = $settings;
+
   $element = file_view_file($file, $view_mode, $langcode);
 
   // Field Translation Support.
@@ -635,9 +589,9 @@ function media_wysiwyg_get_file_view_mode_options($file) {
  */
 function media_wysiwyg_file_displays_alter(&$displays, $file, $view_mode) {
   // Override the fields of the file when requested by the WYSIWYG.
-  if (isset($file->override)) {
+  if (isset($file->override) && isset($file->override['fields'])) {
     $instance = field_info_instances('file', $file->type);
-    foreach ($file->override as $field_name => $value) {
+    foreach ($file->override['fields'] as $field_name => $value) {
       if (!isset($instance[$field_name]['settings']) || !isset($instance[$field_name]['settings']['wysiwyg_override']) || $instance[$field_name]['settings']['wysiwyg_override']) {
         $file->{$field_name} = $value;
       }

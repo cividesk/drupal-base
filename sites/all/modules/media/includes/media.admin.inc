@@ -26,13 +26,6 @@ function media_admin_config_browser($form, &$form_state) {
     '#default_value' => variable_get('media_dialog_theme', ''),
   );
 
-  $form['media_browser_relative_url'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Support relative / absolute urls'),
-    '#default_value' => variable_get('media_browser_relative_url', FALSE),
-    '#description' => t('If checked, then relative urls will be supported, otherwise absolute urls.'),
-  );
-
   $form['array_filter'] = array(
     '#type' => 'value',
     '#value' => TRUE,

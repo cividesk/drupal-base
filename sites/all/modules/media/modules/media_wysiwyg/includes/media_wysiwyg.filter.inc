@@ -20,7 +20,7 @@ function media_wysiwyg_filter($text, $filter = NULL, $format = NULL, $langcode =
   preg_match_all(MEDIA_WYSIWYG_TOKEN_REGEX, $text, $matches);
   if (!empty($matches[0])) {
     foreach ($matches[0] as $match) {
-      $replacement = media_wysiwyg_token_to_markup($match, FALSE, $langcode);
+      $replacement = media_wysiwyg_token_to_markup(array($match), FALSE, $langcode);
       $rendered_text = str_replace($match, $replacement, $rendered_text, $count);
     }
   }
@@ -120,163 +120,25 @@ function media_wysiwyg_parse_css_declarations($declarations) {
 }
 
 /**
- * Turn an array of css property => value pairs to a string.
+ * Replace callback to convert a media file tag into HTML markup.
  *
- * @param array $properties
- *   A keyed array with css property => value pairs.
- *
- * @see media_wysiwyg_parse_css_declarations()
- */
-function media_wysiwyg_stringify_css_declarations(array $properties) {
-  $declarations = array();
-  foreach ($properties as $property => $value) {
-    $declarations[] = $property . ':' . $value;
-  }
-  return implode(';', $declarations);
-}
-
-/**
- * Basic schema for media wysiwyg tokens.
- *
- * This function is knowingly named '*_schema_token' and not ending with
- * '_schema' to avoid potential namespace conflict with hook_schema.
- *
- * @param $lang
- *   The programming language this is targeted at. Either 'php' (default) or
- *   'js'.
- *
- * @return array
- *   Structured array with properties (array keys) the media token may consist
- *   of. Each property is an array with the following keys:
- *   - required: (All) Whether or not this property is required in the token.
- *   - default: (All) Default value for property.
- *   - options: (Optional): List of allowed values for property where the key is
- *     the allowed value.
- */
-function media_wysiwyg_schema_token($lang = 'php') {
-  $schema = array(
-    'type' => array(
-      'required' => TRUE,
-      'default' => 'media',
-    ),
-    'fid' => array(
-      'required' => TRUE,
-      'default' => 0,
-    ),
-    'view_mode' => array(
-      'required' => FALSE,
-      'default' => variable_get('media_wysiwyg_wysiwyg_default_view_mode', 'full'),
-    ),
-    'alignment' => array(
-      'required' => FALSE,
-      'default' => NULL,
-      'options' => array(
-        '' => t("None"),
-        'left' => t("Left"),
-        'center' => t("Center"),
-        'right' => t("Right"),
-      ),
-    ),
-    'instance_fields' => array(
-      'required' => FALSE,
-      'default' => 'override',
-      'options' => array(
-        'global' => t("Global"),
-        'override' => t("Override"),
-      ),
-    ),
-    'attributes' => array(
-      'required' => FALSE,
-      'default' => $lang == 'js' ? new StdClass() : array(),
-    ),
-  );
-  foreach (array('external_url', 'link_text') as $property) {
-    $schema[$property] = array(
-      'required' => FALSE,
-      'default' => NULL,
-    );
-  }
-  return $schema;
-}
-
-/**
- * Get a list of overridable fields per file type.
- *
- * @return {array}
- *   Assoc array with file type as key and an array of fields as values. The
- *   field array is keyed by field name.
- */
-function media_wysiwyg_overridable_fields() {
-  $allowed_types = variable_get('media_wysiwyg_wysiwyg_allowed_types', array('audio', 'image', 'video', 'document'));
-  $allowed_field_types = variable_get('media_wysiwyg_wysiwyg_override_field_types', array('text', 'text_long'));
-  if (empty($allowed_types)) {
-    $entity_info = entity_get_info('file');
-    $allowed_types = array_keys($entity_info['bundles']);
-  }
-  $overridables = array();
-  foreach ($allowed_types as $type) {
-    $overridables[$type] = array();
-    $fields = field_info_instances('file', $type);
-    foreach ($fields as $field_name => $field_instance) {
-      $field_info = field_info_field($field_name);
-      if (in_array($field_info['type'], $allowed_field_types) && !empty($field_instance['settings']['wysiwyg_override'])) {
-        $overridables[$type][$field_name] = true;
-      }
-    }
-  }
-  return $overridables;
-}
-
-/**
- * Validate media instance settings according to token schema.
- *
- * @param $settings
- *   The media instance settings, aka tag_info.
- */
-function media_wysiwyg_validate_instance_settings(&$settings) {
-  $schema = media_wysiwyg_schema_token();
-  foreach ($schema as $property => $prop_settings) {
-    if ($prop_settings['required'] && (!isset($settings[$property]) || !$settings[$property])) {
-      throw new Exception("Token schema error: Required property missing: '" . $property . "'");
-    }
-    if (!isset($settings[$property]) || empty($settings[$property])) {
-      // We set default values for properties that are empty to force the
-      // correct type on it, and set non-required properties that have
-      // non-empty values as default.
-      $settings[$property] = $prop_settings['default'];
-    }
-    else {
-      if (isset($prop_settings['options']) && !isset($prop_settings['options'][$settings[$property]])) {
-        // Invalid option. Instead of throwing an exception, set the default
-        // value so the media instance at least is rendered. @todo: Add some
-        // message/log about malformed token?
-        $settings[$property] = $prop_settings['default'];
-      }
-    }
-  }
-  if ($settings['type'] !== 'media') {
-    throw new Exception("Token schema error: Token not of type 'media'");
-  }
-}
-
-/**
- * Convert a media token into HTML markup.
- *
- * @param string $token
- *   Media token with surrounding double brackets ('[[…]]').
+ * @param string $match
+ *   Takes a match of tag code
  * @param bool $wysiwyg
  *   Set to TRUE if called from within the WYSIWYG text area editor.
  *
  * @return string
- *   The HTML markup representation of the token, or an empty string on failure.
+ *   The HTML markup representation of the tag, or an empty string on failure.
  *
  * @see media_wysiwyg_get_file_without_label()
  * @see hook_media_wysiwyg_token_to_markup_alter()
  */
-function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NULL) {
+function media_wysiwyg_token_to_markup($match, $wysiwyg = FALSE, $langcode = NULL) {
   static $recursion_stop;
-  $json = str_replace("[[", "", $token);
-  $json = str_replace("]]", "", $json);
+  $settings = array();
+  $match = str_replace("[[", "", $match);
+  $match = str_replace("]]", "", $match);
+  $tag = $match[0];
 
   // Drupal modules with email support often include site name in the subject line
   // wrapped in brackets. With a token, this is rendered as "[[site:name]]". Such a
@@ -289,13 +151,25 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
   }
 
   try {
-    if (!is_string($json)) {
+    if (!is_string($tag)) {
       throw new Exception('Unable to find matching tag');
     }
 
-    $tag_info = drupal_json_decode($json);
-    media_wysiwyg_validate_instance_settings($tag_info);
-    if ($tag_info['view_mode'] != 'default') {
+    $tag_info = drupal_json_decode($tag);
+    if (!isset($tag_info['fid'])) {
+      throw new Exception('No file Id');
+    }
+
+    // Ensure the 'link_text' key is always defined.
+    if (!isset($tag_info['link_text'])) {
+      $tag_info['link_text'] = NULL;
+    }
+
+    // Ensure a valid view mode is being requested.
+    if (!isset($tag_info['view_mode'])) {
+      $tag_info['view_mode'] = variable_get('media_wysiwyg_wysiwyg_default_view_mode', 'full');
+    }
+    elseif ($tag_info['view_mode'] != 'default') {
       $file_entity_info = entity_get_info('file');
       if (!in_array($tag_info['view_mode'], array_keys($file_entity_info['view modes']))) {
         // Media 1.x defined some old view modes that have been superseded by
@@ -316,7 +190,9 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
         }
       }
     }
-    if (!($file = file_load($tag_info['fid']))) {
+
+    $file = file_load($tag_info['fid']);
+    if (!$file) {
       throw new Exception('Could not load media object');
     }
     // Check if we've got a recursion. Happens because a file_load() may
@@ -328,29 +204,31 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
 
     $tag_info['file'] = $file;
 
-    if ($tag_info['instance_fields'] == 'override') {
-      // Grab the potentially overridden fields from the file.
-      $settings = media_wysiwyg_filter_field_parser($tag_info);
-      foreach ($settings as $key => $value) {
-        $file->{$key} = $value;
-      }
-    }
-    else {
-      $settings = array();
+    // The class attributes is a string, but drupal requires it to be
+    // an array, so we fix it here.
+    if (!empty($tag_info['attributes']['class'])) {
+      $tag_info['attributes']['class'] = explode(" ", $tag_info['attributes']['class']);
     }
 
-    if (isset($tag_info['external_url'])) {
-      $settings['external_url'] = $tag_info['external_url'];
+    // Grab the potentially overridden fields from the file.
+    $fields = media_wysiwyg_filter_field_parser($tag_info);
+    foreach ($fields as $key => $value) {
+      $file->{$key} = $value;
     }
-    // Analyze and filter attributes from token.
-    $settings['attributes'] = array();
+
+    if (array_key_exists('attributes', $tag_info) && is_array($tag_info['attributes'])) {
+      $attributes = $tag_info['attributes'];
+    }
+    else {
+      $attributes = array();
+    }
+    $attribute_whitelist = media_wysiwyg_allowed_attributes();
+    $settings['attributes'] = array_intersect_key($attributes, array_flip($attribute_whitelist));
+    $settings['fields'] = $fields;
+    if (isset($tag_info['fields']['external_url'])) {
+      $settings['fields']['external_url'] = $tag_info['fields']['external_url'];
+    }
     if (!empty($tag_info['attributes']) && is_array($tag_info['attributes'])) {
-      // The class attributes is a string, but drupal requires it to be an
-      // array, so we fix it here.
-      if (!empty($tag_info['attributes']['class'])) {
-        $tag_info['attributes']['class'] = explode(' ', $tag_info['attributes']['class']);
-      }
-      $attribute_whitelist = media_wysiwyg_allowed_attributes();
       $settings['attributes'] = array_intersect_key($tag_info['attributes'], array_flip($attribute_whitelist));
 
       // Many media formatters will want to apply width and height independently
@@ -370,6 +248,11 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
             $settings[$dimension] = $settings['attributes'][$dimension];
           }
         }
+        // If the element is floated via WYSIWYG editor functionality, delegate
+        // that information to the outer element.
+        if (!empty($css_properties['float'])) {
+          $settings['float'] = $css_properties['float'];
+        }
       }
       foreach (array('title', 'alt') as $field_type) {
         if (isset($settings['attributes'][$field_type])) {
@@ -385,8 +268,20 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
     }
   }
   catch (Exception $e) {
-    watchdog('media', 'Unable to render media from %tag. Error: %error', array('%tag' => $token, '%error' => $e->getMessage()));
+    watchdog('media', 'Unable to render media from %tag. Error: %error', array('%tag' => $tag, '%error' => $e->getMessage()));
     return '';
+  }
+
+  // Remove any alignment classes from $settings, because it will be added later
+  // in this function to the media's wrapper, and we don't want to confuse CSS
+  // by having it on both the wrapper and the element.
+  if (isset($settings['attributes']['class'])) {
+    $alignment_classes = array(
+      'media-wysiwyg-align-left',
+      'media-wysiwyg-align-right',
+      'media-wysiwyg-align-center',
+    );
+    $settings['attributes']['class'] = array_diff($settings['attributes']['class'], $alignment_classes);
   }
 
   // If the tag has link text stored with it, override the filename with it for
@@ -401,7 +296,6 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
   }
 
   if ($wysiwyg) {
-    media_wysiwyg_fid_type_map_add($file->fid, $file->type);
     $settings['wysiwyg'] = $wysiwyg;
 
     // Render file in WYSIWYG using appropriate view mode.
@@ -412,7 +306,27 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
     if (empty($view_mode)) {
       $view_mode = $tag_info['view_mode'];
     }
+
+    // If sending markup to a WYSIWYG, we need to pass the file information so
+    // that an inline macro can be generated when the WYSIWYG is detached.
+    // The WYSIWYG plugin is expecting this information in the
+    // Drupal.settings.mediaDataMap variable.
     $element = media_wysiwyg_get_file_without_label($file, $view_mode, $settings, $langcode);
+    $data = array(
+      'type' => 'media',
+      'fid'  => $file->fid,
+      'view_mode' => $tag_info['view_mode'],
+      'link_text' => $tag_info['link_text'],
+    );
+    drupal_add_js(array('mediaDataMap' => array($file->fid => $data)), 'setting');
+    $element['#attributes']['data-fid'] = $file->fid;
+    $element['#attributes']['data-media-element'] = '1';
+    if (is_array($element['#attributes']['class'])) {
+      $element['#attributes']['class'][] = 'media-element';
+    }
+    else {
+      $element['#attributes']['class'] .= 'media-element';
+    }
   }
   else {
     // Display the field elements.
@@ -437,6 +351,11 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
       field_attach_prepare_view('file', array($file->fid => $file), $tag_info['view_mode'], $langcode);
       entity_prepare_view('file', array($file->fid => $file), $langcode);
       $element['content'] += field_attach_view('file', $file, $tag_info['view_mode'], $langcode);
+
+      // Add any float information via an extra class
+      if (!empty($settings['float'])) {
+        $element['content']['file']['#attributes']['class'][] = drupal_html_class('media-float-' . $settings['float']);
+      }
     }
     if (count(element_children($element['content'])) > 1) {
       // Add surrounding divs to group them together.
@@ -448,19 +367,28 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
         'media-element-container',
         'media-' . $element['content']['file']['#view_mode'],
       );
+      // Add the float information to the outer element.
+      if (!empty($settings['float'])) {
+        $element['content']['#attributes']['class'][] = drupal_html_class('media-float-' . $settings['float']);
+      }
       if (variable_get('media_wysiwyg_remove_media_class', FALSE)) {
         $classes = $element['content']['#attributes']['class'];
         $element['content']['#attributes']['class'] = array_diff($classes, array('media'));
       }
     }
 
-    if (!empty($tag_info['alignment']) && !empty($element['content'])) {
-      $element['content']['#attributes']['class'][] = 'media-wysiwyg-align-' . $tag_info['alignment'];
-    }
     // Conditionally add a pre-render if the media filter output is be cached.
     $filters = filter_get_filters();
     if (!isset($filters['media_filter']['cache']) || $filters['media_filter']['cache']) {
       $element['#pre_render'][] = 'media_wysiwyg_pre_render_cached_filter';
+    }
+  }
+  if (!empty($element['content']) && !empty($tag_info['fields']['alignment'])) {
+    // Set a CSS class if an alignment has been specified and is correct.
+    $alignment = $tag_info['fields']['alignment'];
+    if (in_array($alignment, array('left', 'right', 'center'))) {
+      $alignment_class = 'media-wysiwyg-align-' . $alignment;
+      $element['content']['#attributes']['class'][] = $alignment_class;
     }
   }
   drupal_alter('media_wysiwyg_token_to_markup', $element, $tag_info, $settings, $langcode);
@@ -470,13 +398,13 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
 }
 
 /**
- * Parse field properties of $tag_info into structured, sanitized fields data.
+ * Parse the 'fields' entry of $tag_info into structured, sanitized fields data.
  *
- * Fields present in the $tag_info array are the string equivalent of accessing
- * the field's value, e.g. 'field_file_image_alt_text[und][0][value]' and the
- * value is the actual field value. These parts are turned into sanitized fields
- * data arrays with the full hierarchy of language, deltas, data column and
- * finally value.
+ * The keys of the fields array are the string equivalent of accessing the
+ * field's value, e.g. 'field_file_image_alt_text[und][0][value]' and the value
+ * is the actual field value. These parts are turned into sanitized fields data
+ * arrays with the full hierarchy of language, deltas, data column and finally
+ * value.
  *
  * Only configured or programmed fields present in the site's installation is
  * parsed and returned.
@@ -489,71 +417,72 @@ function media_wysiwyg_token_to_markup($token, $wysiwyg = FALSE, $langcode = NUL
  */
 function media_wysiwyg_filter_field_parser(array $tag_info) {
   $fields = array();
-  // Field value reference candidates (keys) that end in [format] are
-  // associated with long-text fields that may have HTML Entities. Those
-  // values will need to be URLDecoded as well as HTMLDecoded.
-  $url_encoded_fields = array();
-  foreach ($tag_info as $candidate => $field_value) {
-    if (preg_match('/\[format\]$/', $candidate) > 0) {
-      $url_encoded_fields[] = preg_replace('/\[format\]$/', '[value]', $candidate);
-    }
-  }
-
-  foreach ($tag_info as $candidate => $field_value) {
-    $parsed_field = explode('[', str_replace(']', '', $candidate));
-    if (count($parsed_field) < 2) {
-      continue;
-    }
-    // We are garuanteed to have a value in $parsed_field[0].
-    $info = field_info_field($parsed_field[0]);
-    if (!$info) {
-      // Not an existing/configured field.
-      continue;
-    }
-
-    // Certain types of fields, because of differences in markup, end up here
-    // with incomplete arrays. Make a best effort to support as many types of
-    // fields as possible. Single-value select lists show up here with only 2
-    // array items.
-    if (count($parsed_field) == 2) {
-      if ($info && !empty($info['columns'])) {
-        // Assume single-value.
-        $parsed_field[] = 0;
-        // Next tack on the column for this field.
-        $parsed_field[] = key($info['columns']);
+  if (isset($tag_info['fields'])) {
+    // Field value reference candidates (keys) that end in [format] are
+    // associated with long-text fields that may have HTML Entities. Those
+    // values will need to be URLDecoded as well as HTMLDecoded.
+    $url_encoded_fields = array();
+    foreach ($tag_info['fields'] as $candidate => $field_value) {
+      if (preg_match('/\[format\]$/', $candidate) > 0) {
+        $url_encoded_fields[] = preg_replace('/\[format\]$/', '[value]', $candidate);
       }
     }
-    // Multi-value select lists show up here with 3 array items.
-    elseif (count($parsed_field) == 3 && (empty($parsed_field[2]) || is_numeric($parsed_field[2]))) {
-      // They just need the value column.
-      $parsed_field[3] = key($info['columns']);
-    }
 
-    // Each key of the field needs to be the child of the previous key.
-    $ref = &$fields;
-    foreach ($parsed_field as $key) {
-      if (!isset($ref[$key])) {
-        $ref[$key] = array();
+    foreach ($tag_info['fields'] as $candidate => $field_value) {
+      if (strpos($candidate, 'field_') === 0) {
+        $parsed_field = explode('[', str_replace(']', '', $candidate));
+        // We are garuanteed to have a value in $parsed_field[0].
+        $info = field_info_field($parsed_field[0]);
+        if (!$info) {
+          // Not an existing/configured field.
+          continue;
+        }
+
+        // Certain types of fields, because of differences in markup, end up
+        // here with incomplete arrays. Make a best effort to support as many
+        // types of fields as possible.
+        // Single-value select lists show up here with only 2 array items.
+        if (count($parsed_field) == 2) {
+          if ($info && !empty($info['columns'])) {
+            // Assume single-value.
+            $parsed_field[] = 0;
+            // Next tack on the column for this field.
+            $parsed_field[] = key($info['columns']);
+          }
+        }
+        // Multi-value select lists show up here with 3 array items.
+        elseif (count($parsed_field) == 3 && (empty($parsed_field[2]) || is_numeric($parsed_field[2]))) {
+          // They just need the value column.
+          $parsed_field[3] = key($info['columns']);
+        }
+
+        // Each key of the field needs to be the child of the previous key.
+        $ref = &$fields;
+        foreach ($parsed_field as $key) {
+          if (!isset($ref[$key])) {
+            $ref[$key] = array();
+          }
+          $ref = &$ref[$key];
+        }
+        // The value should be set at the deepest level.
+        if (in_array($candidate, $url_encoded_fields)) {
+          // Fields that use rich-text markup will be urlencoded.
+          $ref = urldecode(decode_entities($field_value));
+        }
+        else {
+          // Only entities need to be decoded.
+          $ref = decode_entities($field_value);
+        }
       }
-      $ref = &$ref[$key];
     }
-    // The value should be set at the deepest level.
-    if (in_array($candidate, $url_encoded_fields)) {
-      // Fields that use rich-text markup will be urlencoded.
-      $ref = urldecode(decode_entities($field_value));
-    }
-    else {
-      // Only entities need to be decoded.
-      $ref = decode_entities($field_value);
-    }
-  }
-  // Strip fields for empty values. This is necessary to do post parsing of all
-  // field entries as they may refer to the same field several times.
-  foreach ($fields as $field_name => $field_languages) {
-    $info = field_info_field($field_name);
-    if (isset($field_languages) && is_array($field_languages)) {
-      foreach ($field_languages as $lang => $items) {
-        $fields[$field_name][$lang] = _field_filter_items($info, $items);
+    // Strip fields for empty values. This is necessary to do post parsing of
+    // all field entries as they may refer to the same field several times.
+    foreach ($fields as $field_name => $field_languages) {
+      $info = field_info_field($field_name);
+      if (isset($field_languages) && is_array($field_languages)) {
+        foreach ($field_languages as $lang => $items) {
+          $fields[$field_name][$lang] = _field_filter_items($info, $items);
+        }
       }
     }
   }
@@ -561,64 +490,43 @@ function media_wysiwyg_filter_field_parser(array $tag_info) {
 }
 
 /**
- * Add and keep a map of file IDs => file types.
- *
- * @param int fid
- *   The file ID
- * @param string type
- *   The file type of given file ID.
- */
-function media_wysiwyg_fid_type_map_add($fid = 0, $type = '', $reset = FALSE) {
-  $fid_type_map = &drupal_static('media_wysiwyg_fid_type_map', array());
-  if (!$fid) {
-    return $fid_type_map;
-  }
-  $fid_type_map[$fid] = $type;
-}
-
-/**
- * Get map between file ID and their type.
- *
- * @param bool $reset
- *   Flush map after get.
- */
-function media_wysiwyg_fid_type_map_get($reset = FALSE) {
-  $map = media_wysiwyg_fid_type_map_add();
-  if ($reset) {
-    drupal_static_reset('media_wysiwyg_fid_type_map');
-  }
-  return $map;
-}
-
-/**
  * Creates map of inline media tags.
  *
- * Generates an array of [inline tags hash] => <html> to be used in filter
+ * Generates an array of [inline tags] => <html> to be used in filter
  * replacement and to add the mapping to JS.
  *
  * @param string $text
  *   The String containing text and html markup of textarea
  *
  * @return array
- *   An associative array with tag hash as key and html markup as the value.
+ *   An associative array with tag code as key and html markup as the value.
  *
  * @see media_process_form()
  * @see media_token_to_markup()
  */
-function _media_wysiwyg_generate_tagmap($text) {
-  // Making $tagmap static as this function is called several times to avoid
-  // getting duplicate markup for the same macro.
-  $tagmap = &drupal_static(__FUNCTION__, array());
+function _media_wysiwyg_generate_tagMap($text) {
+  // Making $tagmap static as this function is called many times and
+  // adds duplicate markup for each tag code in Drupal.settings JS,
+  // so in media_process_form it adds something like tagCode:<markup>,
+  // <markup> and when we replace in attach see two duplicate images
+  // for one tagCode. Making static would make function remember value
+  // between function calls. Since media_process_form is multiple times
+  // with same form, this function is also called multiple times.
+  static $tagmap = array();
   preg_match_all("/\[\[(?!nid:).*?\]\]/s", $text, $matches, PREG_SET_ORDER);
   foreach ($matches as $match) {
-    $hash_key = media_wysiwyg_get_token_key($match[0]);
-    if (empty($tagmap[$hash_key])) {
-      if ($markup_for_media = media_wysiwyg_token_to_markup($match[0], TRUE)) {
-        $tagmap[$hash_key] = $markup_for_media;
+    // We see if tagContent is already in $tagMap, if not we add it
+    // to $tagmap.  If we return an empty array, we break embeddings of the same
+    // media multiple times.
+    if (empty($tagmap[$match[0]])) {
+      // @TODO: Total HACK, but better than nothing.
+      // We should find a better way of cleaning this up.
+      if ($markup_for_media = media_wysiwyg_token_to_markup($match, TRUE)) {
+        $tagmap[$match[0]] = $markup_for_media;
       }
       else {
         $missing = file_create_url(drupal_get_path('module', 'media') . '/images/icons/default/image-x-generic.png');
-        $tagmap[$hash_key] = '<div><img src="' . $missing . '" width="100px" height="100px"/></div>';
+        $tagmap[$match[0]] = '<div><img src="' . $missing . '" width="100px" height="100px"/></div>';
       }
     }
   }
@@ -697,69 +605,4 @@ function media_wysiwyg_pre_render_cached_filter($element) {
   }
 
   return $element;
-}
-
-/**
- * Get a suitable indexing key of media tokens.
- *
- * This has to match the client side equivalent
- * Drupal.media.WysiwygInstance.prototype.getTokenKey().
- */
-function media_wysiwyg_get_token_key($token) {
-  // The hash key has to be prefixed with a string due to the nature of
-  // drupal_add_js() which renumbers numeric indexes to plain serial indexes. In
-  // order to keep the index during the PHP/JS handshake we prefix it with
-  // 'token-'.
-  return 'token-' . media_wysiwyg_hash_code($token);
-}
-
-/**
- * PHP equivalent of Javascipt String.prototype.charCodeAt().
- */
-function media_wysiwyg_char_code_at($str, $index) {
-  $char = mb_substr($str, $index, 1, 'UTF-8');
-
-  if (mb_check_encoding($char, 'UTF-8')) {
-    $ret = mb_convert_encoding($char, 'UTF-32BE', 'UTF-8');
-    return hexdec(bin2hex($ret));
-  }
-  else {
-    return NULL;
-  }
-}
-
-/**
- * Generate integer hash of string.
- *
- * Rip-off from:
- * http://www.erlycoder.com/49/javascript-hash-functions-to-convert-string-into-integer-hash-
- *
- * This function has to match its javascript sibling implementation. The
- * client-side hash has to be the same as this.
- *
- * @param string $str
- *   String to generate hash from.
- *
- * @see media_wysiwyg.utils.js:Drupal.media.utils.hashCode()
- *
- * @return int
- *   The generated hash code as integer.
- */
-function media_wysiwyg_hash_code($str) {
-  $hash = 0;
-  $length = mb_strlen($str, 'UTF-8');
-
-  if ($length == 0) {
-    return $hash;
-  }
-  for ($i = 0; $i < $length; $i++) {
-    $char = media_wysiwyg_char_code_at($str, $i);
-
-    $hash = (($hash << 5) - $hash) + $char;
-    // Convert to 31bit integer, omitting signed/unsigned compatibility issues
-    // between php and js.
-    $hash &= 0x7fffffff;
-  }
-
-  return $hash;
 }

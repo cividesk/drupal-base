@@ -6,8 +6,8 @@
  *   Launches the media browser which allows users to pick a piece of media.
  *
  * Drupal.media.popups.mediaStyleSelector
- *  Launches the media instance settings form where the user can configure the
- *  view mode and misc other settings related to given media instance.
+ *  Launches the style selection form where the user can choose what
+ *  format/style they want their media in.
  */
 
 (function ($) {
@@ -187,13 +187,13 @@ Drupal.media.popups.mediaStyleSelector = function (mediaFile, onSelect, options)
 
   // @todo: remove this awful hack :(
   if (typeof defaults.src === 'string' ) {
-    defaults.src = defaults.src.replace('-media_id-', mediaFile.fid) + '&instance_settings=' + encodeURIComponent(JSON.stringify(mediaFile));
+    defaults.src = defaults.src.replace('-media_id-', mediaFile.fid) + '&fields=' + encodeURIComponent(JSON.stringify(mediaFile.fields));
   }
   else {
     var src = defaults.src.shift();
 
     defaults.src.unshift(src);
-    defaults.src = src.replace('-media_id-', mediaFile.fid) + '&instance_settings=' + encodeURIComponent(JSON.stringify(mediaFile));
+    defaults.src = src.replace('-media_id-', mediaFile.fid) + '&fields=' + encodeURIComponent(JSON.stringify(mediaFile.fields));
   }
 
   options = $.extend({}, defaults, options);
@@ -214,7 +214,8 @@ Drupal.media.popups.mediaStyleSelector = function (mediaFile, onSelect, options)
   dialogOptions.buttons[ok] = function () {
     // Find the current file selection.
     var formattedMedia = this.contentWindow.Drupal.media.formatForm.getFormattedMedia();
-    formattedMedia.options = $.extend({}, mediaFile, formattedMedia.options);
+    formattedMedia.options = $.extend({}, mediaFile.attributes, formattedMedia.options);
+
     // Alert the user if a selection has yet to be made.
     if (!formattedMedia) {
       alert(notSelected);

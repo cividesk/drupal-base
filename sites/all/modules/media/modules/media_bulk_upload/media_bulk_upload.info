@@ -16,7 +16,7 @@ files[] = includes/MediaBrowserBulkUpload.inc
 files[] = tests/media_bulk_upload.test
 
 ; Information added by Drupal.org packaging script on 2020-03-22
-version = "7.x-4.1"
+version = "7.x-2.26"
 core = "7.x"
 project = "media"
-datestamp = "1584902619"
+datestamp = "1584902430"

@@ -147,14 +147,22 @@ jQuery(document).ready(function() {
     };
 
     if (typeof(Drupal.ckeditorToolbarToArray) == 'undefined') {
-        Drupal.ckeditorToolbarToArray = function (toolbar) {
-            toolbar = toolbar.replace(/\r?\n|\r/gmi, '')
-                .replace(/\s/gmi, '')
-                .replace(/([a-zA-Z0-9]+?):/g, '"$1":')
-                .replace(/'/g, '"');
+      Drupal.ckeditorToolbarToArray = function (toolbar) {
+        toolbar = toolbar.replace(/\r?\n|\r/gmi, '')
+          .replace(/\s/gmi, '')
+          .replace(/'/g, '"');
 
+        try {
+          return JSON.parse(toolbar);
+        } catch (e) {
+          toolbar = toolbar.replace(/([a-zA-Z0-9]+?):/g, '"$1":')
+          try {
             return JSON.parse(toolbar);
-        };
+          } catch (e) {
+            return toolbar;
+          }
+        }
+      };
     }
 
     Drupal.ckeditorToolbaInit();

@@ -919,18 +919,49 @@ function ckeditor_profile_settings_compile($global_profile, $profile) {
   }
 
   if (!empty($conf['js_conf'])) {
-    preg_match_all('#config\.(\w+)[\s]*=[\s]*(.+?);[\s]*(?=config\.|$)#is', preg_replace("/[\n\r]+/", "", $conf['js_conf']), $matches);
+    $dtd = [];
+    // Remove comments lines
+    // multi-line
+    $jsConf = preg_replace('#^/\*(?:[^*]*(?:\*(?!/))*)*\*/#m','', $conf['js_conf']);
+    // single-line double slash
+    $jsConf = preg_replace('#([;,{}()\[\]]|[\s\t]+)//.*[ \t]*#m','', $jsConf);
+    // single-line hash
+    $jsConf = preg_replace('/^[ \t]*#.*[ \t]*/m','', $jsConf);
+    //$jsConf = preg_replace('/^#.*/','', $jsConf);
+    // Strip blank lines
+    $jsConf = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "", $jsConf);
+
+    preg_match_all('#config\.(\w+)[\s]*=[\s]*(.+?)[\s]*(?=(^[\s]*|;[\s]*)config\.|$)#is', $jsConf, $matches);
     foreach ($matches[2] as $i => $match) {
       if (!empty($match)) {
+        $match = rtrim($match, ';').';';
+        preg_match_all('#(CKEDITOR\.+[\w\.\$]+[\s]*)=[\s]*(.+?);[\s]*(?=CKEDITOR\.|\/\/|\/*$)#is', $match, $subMatches);
+        // Custom CKEditor setting concatenated
+        if (!empty($subMatches[2])) {
+          foreach($subMatches[2] as $idx => $val) {
+            $match = str_replace($subMatches[0][$idx], 'CKE', $match);
+            $dtd[$subMatches[1][$idx]] = $val;
+          }
+        }
+
         $value = trim($match, " ;\n\r\t\0\x0B");
         if (strcasecmp($value, 'true') == 0) {
           $value = TRUE;
         }
-        if (strcasecmp($value, 'false') == 0) {
+        elseif (strcasecmp($value, 'false') == 0) {
           $value = FALSE;
         }
-        $settings["js_conf"][$matches[1][$i]] = $value;
+        else if ( preg_match('#["|\'][\s]*\+[\s]*["|\']#is', $value)) {
+          // Special case for JS concatenated strings
+          $value = preg_replace('#["|\'][\s]*\+[\s]*["|\']#', '', $value);
+        }
+
+        $settings["js_conf"][$matches[1][$i]] = str_replace('CKEDITOR.dtd.', '', $value);
       }
+    }
+
+    if (!empty($dtd)) {
+      $settings["js_conf"]["dtd"] = $dtd;
     }
   }
 
